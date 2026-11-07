@@ -27,7 +27,7 @@ local CFG = {
     AIM_VISIBLE_CHECK = true,
     AIM_VEHICLE       = true,
     AIM_HEAD_OFFSET   = Vector3.new(0, 0, 0),
-    AIM_SMOOTH        = 0.25,   -- 0.01 (butter) → 1.0 (snap)
+    AIM_SMOOTH        = 0.25,
     KEY_LOCK         = Enum.KeyCode.E,
     KEY_ESP_TOGGLE   = Enum.KeyCode.X,
     KEY_FOV_UP       = Enum.KeyCode.RightBracket,
@@ -269,7 +269,6 @@ else
     ScreenGui.Parent = ok and cg or LocalPlayer:WaitForChild("PlayerGui")
 end
 
--- ── Palette
 local T = {
     BG         = Color3.fromRGB(28,28,36),
     SIDEBAR    = Color3.fromRGB(22,22,30),
@@ -294,7 +293,6 @@ local WIN_H    = 310
 local SIDE_W   = 108
 local HDR_H    = 42
 
--- ── Main window
 local Win = Instance.new("Frame")
 Win.Name               = "Win"
 Win.Size               = UDim2.new(0,WIN_W,0,WIN_H)
@@ -312,7 +310,6 @@ WinStroke.Thickness   = 2
 WinStroke.Transparency= 0.5
 WinStroke.Parent      = Win
 
--- ── Header
 local Header = Instance.new("Frame")
 Header.Name            = "Header"
 Header.Size            = UDim2.new(1,0,0,HDR_H)
@@ -356,7 +353,6 @@ HSub.TextXAlignment    = Enum.TextXAlignment.Left
 HSub.ZIndex            = 12
 HSub.Parent            = Header
 
--- Minimise button
 local MinBtn = Instance.new("TextButton")
 MinBtn.Text            = "─"
 MinBtn.Size            = UDim2.new(0,24,0,22)
@@ -370,7 +366,6 @@ MinBtn.ZIndex          = 13
 MinBtn.Parent          = Header
 Instance.new("UICorner",MinBtn).CornerRadius = UDim.new(0,4)
 
--- Close button
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Text          = "×"
 CloseBtn.Size          = UDim2.new(0,24,0,22)
@@ -392,7 +387,6 @@ HDivider.BorderSizePixel  = 0
 HDivider.ZIndex        = 11
 HDivider.Parent        = Win
 
--- ── Sidebar
 local Sidebar = Instance.new("Frame")
 Sidebar.Name           = "Sidebar"
 Sidebar.Size           = UDim2.new(0,SIDE_W,1,-HDR_H-1)
@@ -415,7 +409,6 @@ VDiv.BorderSizePixel   = 0
 VDiv.ZIndex            = 11
 VDiv.Parent            = Win
 
--- ── Right panel
 local Panel = Instance.new("ScrollingFrame")
 Panel.Name             = "Panel"
 Panel.Size             = UDim2.new(1,-SIDE_W-1,1,-HDR_H-1)
@@ -460,27 +453,23 @@ local tabContents = {}
 
 local function setTab(id)
     for _,children in pairs(tabContents) do
-        for _,w in ipairs(children) do
-            w.Visible = false
-        end
+        for _,w in ipairs(children) do w.Visible = false end
     end
     for tid,btn in pairs(tabButtons) do
-        btn.BackgroundColor3   = T.SIDEBAR
+        btn.BackgroundColor3       = T.SIDEBAR
         btn.BackgroundTransparency = 1
-        btn.TextColor3         = T.TXT_DIM
+        btn.TextColor3             = T.TXT_DIM
         local bar = btn:FindFirstChild("AccBar")
         if bar then bar.BackgroundTransparency = 1 end
     end
     if tabContents[id] then
-        for _,w in ipairs(tabContents[id]) do
-            w.Visible = true
-        end
+        for _,w in ipairs(tabContents[id]) do w.Visible = true end
     end
     local ab = tabButtons[id]
     if ab then
-        ab.BackgroundColor3   = T.TAB_SEL
+        ab.BackgroundColor3       = T.TAB_SEL
         ab.BackgroundTransparency = 0
-        ab.TextColor3         = T.TXT_ON
+        ab.TextColor3             = T.TXT_ON
         local bar = ab:FindFirstChild("AccBar")
         if bar then bar.BackgroundTransparency = 0 end
     end
@@ -507,21 +496,20 @@ for order,tab in ipairs(TABS) do
     pad.PaddingLeft = UDim.new(0,10)
     pad.Parent      = btn
     local bar = Instance.new("Frame")
-    bar.Name                = "AccBar"
-    bar.Size                = UDim2.new(0,3,0,18)
-    bar.Position            = UDim2.new(0,0,0.5,-9)
-    bar.BackgroundColor3    = T.ACCENT
-    bar.BorderSizePixel     = 0
+    bar.Name                   = "AccBar"
+    bar.Size                   = UDim2.new(0,3,0,18)
+    bar.Position               = UDim2.new(0,0,0.5,-9)
+    bar.BackgroundColor3       = T.ACCENT
+    bar.BorderSizePixel        = 0
     bar.BackgroundTransparency = 1
-    bar.ZIndex              = 13
-    bar.Parent              = btn
+    bar.ZIndex                 = 13
+    bar.Parent                 = btn
     Instance.new("UICorner",bar).CornerRadius = UDim.new(1,0)
-
     tabButtons[tab.id] = btn
     btn.MouseButton1Click:Connect(function() setTab(tab.id) end)
     btn.MouseEnter:Connect(function()
         if activeTab ~= tab.id then
-            btn.BackgroundColor3   = T.TAB_SEL
+            btn.BackgroundColor3       = T.TAB_SEL
             btn.BackgroundTransparency = 0.6
         end
     end)
@@ -544,23 +532,23 @@ end
 local function secHeader(tabId, text)
     wOrder += 1
     local f = Instance.new("Frame")
-    f.Size               = UDim2.new(1,0,0,24)
-    f.BackgroundColor3   = T.SEC
-    f.BorderSizePixel    = 0
-    f.LayoutOrder        = wOrder
-    f.ZIndex             = 12
-    f.Parent             = Panel
+    f.Size             = UDim2.new(1,0,0,24)
+    f.BackgroundColor3 = T.SEC
+    f.BorderSizePixel  = 0
+    f.LayoutOrder      = wOrder
+    f.ZIndex           = 12
+    f.Parent           = Panel
     local lbl = Instance.new("TextLabel")
-    lbl.Text             = text
-    lbl.Size             = UDim2.new(1,-8,1,0)
-    lbl.Position         = UDim2.new(0,8,0,0)
+    lbl.Text           = text
+    lbl.Size           = UDim2.new(1,-8,1,0)
+    lbl.Position       = UDim2.new(0,8,0,0)
     lbl.BackgroundTransparency = 1
-    lbl.TextColor3       = T.TXT_ON
-    lbl.TextSize         = 11
-    lbl.Font             = Enum.Font.GothamBold
-    lbl.TextXAlignment   = Enum.TextXAlignment.Left
-    lbl.ZIndex           = 13
-    lbl.Parent           = f
+    lbl.TextColor3     = T.TXT_ON
+    lbl.TextSize       = 11
+    lbl.Font           = Enum.Font.GothamBold
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.ZIndex         = 13
+    lbl.Parent         = f
     regWidget(tabId, f)
     return f
 end
@@ -568,12 +556,12 @@ end
 local function makeToggle(tabId, label, desc, initVal, callback)
     wOrder += 1
     local row = Instance.new("Frame")
-    row.Size               = UDim2.new(1,0,0, desc ~= "" and 42 or 36)
-    row.BackgroundColor3   = T.ROW_A
-    row.BorderSizePixel    = 0
-    row.LayoutOrder        = wOrder
-    row.ZIndex             = 12
-    row.Parent             = Panel
+    row.Size             = UDim2.new(1,0,0, desc ~= "" and 42 or 36)
+    row.BackgroundColor3 = T.ROW_A
+    row.BorderSizePixel  = 0
+    row.LayoutOrder      = wOrder
+    row.ZIndex           = 12
+    row.Parent           = Panel
 
     local strip = Instance.new("Frame")
     strip.Size             = UDim2.new(0,2,1,0)
@@ -583,16 +571,16 @@ local function makeToggle(tabId, label, desc, initVal, callback)
     strip.Parent           = row
 
     local lbl = Instance.new("TextLabel")
-    lbl.Text               = label
-    lbl.Size               = UDim2.new(1,-58,0,18)
-    lbl.Position           = UDim2.new(0,10,0,6)
+    lbl.Text             = label
+    lbl.Size             = UDim2.new(1,-58,0,18)
+    lbl.Position         = UDim2.new(0,10,0,6)
     lbl.BackgroundTransparency = 1
-    lbl.TextColor3         = initVal and T.TXT_ON or T.TXT_DIM
-    lbl.TextSize           = 13
-    lbl.Font               = Enum.Font.GothamBold
-    lbl.TextXAlignment     = Enum.TextXAlignment.Left
-    lbl.ZIndex             = 13
-    lbl.Parent             = row
+    lbl.TextColor3       = initVal and T.TXT_ON or T.TXT_DIM
+    lbl.TextSize         = 13
+    lbl.Font             = Enum.Font.GothamBold
+    lbl.TextXAlignment   = Enum.TextXAlignment.Left
+    lbl.ZIndex           = 13
+    lbl.Parent           = row
 
     if desc and desc ~= "" then
         local dlbl = Instance.new("TextLabel")
@@ -609,21 +597,21 @@ local function makeToggle(tabId, label, desc, initVal, callback)
     end
 
     local pill = Instance.new("Frame")
-    pill.Size              = UDim2.new(0,42,0,22)
-    pill.Position          = UDim2.new(1,-50,0.5,-11)
-    pill.BackgroundColor3  = initVal and T.ACCENT or T.PILL_OFF
-    pill.BorderSizePixel   = 0
-    pill.ZIndex            = 13
-    pill.Parent            = row
+    pill.Size            = UDim2.new(0,42,0,22)
+    pill.Position        = UDim2.new(1,-50,0.5,-11)
+    pill.BackgroundColor3= initVal and T.ACCENT or T.PILL_OFF
+    pill.BorderSizePixel = 0
+    pill.ZIndex          = 13
+    pill.Parent          = row
     Instance.new("UICorner",pill).CornerRadius = UDim.new(1,0)
 
     local dot = Instance.new("Frame")
-    dot.Size               = UDim2.new(0,16,0,16)
-    dot.Position           = initVal and UDim2.new(1,-19,0.5,-8) or UDim2.new(0,3,0.5,-8)
-    dot.BackgroundColor3   = Color3.new(1,1,1)
-    dot.BorderSizePixel    = 0
-    dot.ZIndex             = 14
-    dot.Parent             = pill
+    dot.Size             = UDim2.new(0,16,0,16)
+    dot.Position         = initVal and UDim2.new(1,-19,0.5,-8) or UDim2.new(0,3,0.5,-8)
+    dot.BackgroundColor3 = Color3.new(1,1,1)
+    dot.BorderSizePixel  = 0
+    dot.ZIndex           = 14
+    dot.Parent           = pill
     Instance.new("UICorner",dot).CornerRadius = UDim.new(1,0)
 
     local state = initVal
@@ -631,12 +619,8 @@ local function makeToggle(tabId, label, desc, initVal, callback)
         state = v
         lbl.TextColor3         = v and T.TXT_ON or T.TXT_DIM
         strip.BackgroundColor3 = v and T.ACCENT or T.TXT_DIM
-        TweenSvc:Create(pill,TweenInfo.new(0.15),{
-            BackgroundColor3 = v and T.ACCENT or T.PILL_OFF
-        }):Play()
-        TweenSvc:Create(dot,TweenInfo.new(0.15),{
-            Position = v and UDim2.new(1,-19,0.5,-8) or UDim2.new(0,3,0.5,-8)
-        }):Play()
+        TweenSvc:Create(pill,TweenInfo.new(0.15),{BackgroundColor3 = v and T.ACCENT or T.PILL_OFF}):Play()
+        TweenSvc:Create(dot, TweenInfo.new(0.15),{Position = v and UDim2.new(1,-19,0.5,-8) or UDim2.new(0,3,0.5,-8)}):Play()
         callback(v)
     end
 
@@ -647,16 +631,11 @@ local function makeToggle(tabId, label, desc, initVal, callback)
     hitbox.ZIndex          = 15
     hitbox.Parent          = row
     hitbox.MouseButton1Click:Connect(function() setState(not state) end)
-
     hitbox.MouseEnter:Connect(function()
-        TweenSvc:Create(row,TweenInfo.new(0.1),{
-            BackgroundColor3 = T.SEC
-        }):Play()
+        TweenSvc:Create(row,TweenInfo.new(0.1),{BackgroundColor3 = T.SEC}):Play()
     end)
     hitbox.MouseLeave:Connect(function()
-        TweenSvc:Create(row,TweenInfo.new(0.1),{
-            BackgroundColor3 = T.ROW_A
-        }):Play()
+        TweenSvc:Create(row,TweenInfo.new(0.1),{BackgroundColor3 = T.ROW_A}):Play()
     end)
 
     regWidget(tabId, row)
@@ -666,24 +645,24 @@ end
 local function makeSlider(tabId, label, minV, maxV, initVal, fmtFn, callback)
     wOrder += 1
     local row = Instance.new("Frame")
-    row.Size               = UDim2.new(1,0,0,52)
-    row.BackgroundColor3   = T.ROW_B
-    row.BorderSizePixel    = 0
-    row.LayoutOrder        = wOrder
-    row.ZIndex             = 12
-    row.Parent             = Panel
+    row.Size             = UDim2.new(1,0,0,52)
+    row.BackgroundColor3 = T.ROW_B
+    row.BorderSizePixel  = 0
+    row.LayoutOrder      = wOrder
+    row.ZIndex           = 12
+    row.Parent           = Panel
 
     local lbl = Instance.new("TextLabel")
-    lbl.Text               = label.."   "..fmtFn(initVal)
-    lbl.Size               = UDim2.new(1,-8,0,18)
-    lbl.Position           = UDim2.new(0,10,0,6)
+    lbl.Text             = label.."   "..fmtFn(initVal)
+    lbl.Size             = UDim2.new(1,-8,0,18)
+    lbl.Position         = UDim2.new(0,10,0,6)
     lbl.BackgroundTransparency = 1
-    lbl.TextColor3         = T.TXT_ON
-    lbl.TextSize           = 12
-    lbl.Font               = Enum.Font.GothamBold
-    lbl.TextXAlignment     = Enum.TextXAlignment.Left
-    lbl.ZIndex             = 13
-    lbl.Parent             = row
+    lbl.TextColor3       = T.TXT_ON
+    lbl.TextSize         = 12
+    lbl.Font             = Enum.Font.GothamBold
+    lbl.TextXAlignment   = Enum.TextXAlignment.Left
+    lbl.ZIndex           = 13
+    lbl.Parent           = row
 
     local track = Instance.new("Frame")
     track.Size             = UDim2.new(1,-20,0,6)
@@ -695,21 +674,21 @@ local function makeSlider(tabId, label, minV, maxV, initVal, fmtFn, callback)
     Instance.new("UICorner",track).CornerRadius = UDim.new(1,0)
 
     local fill = Instance.new("Frame")
-    fill.Size              = UDim2.new((initVal-minV)/(maxV-minV),0,1,0)
-    fill.BackgroundColor3  = T.ACCENT
-    fill.BorderSizePixel   = 0
-    fill.ZIndex            = 14
-    fill.Parent            = track
+    fill.Size            = UDim2.new((initVal-minV)/(maxV-minV),0,1,0)
+    fill.BackgroundColor3= T.ACCENT
+    fill.BorderSizePixel = 0
+    fill.ZIndex          = 14
+    fill.Parent          = track
     Instance.new("UICorner",fill).CornerRadius = UDim.new(1,0)
 
     local knob = Instance.new("Frame")
-    knob.Size              = UDim2.new(0,14,0,14)
-    knob.AnchorPoint       = Vector2.new(0.5,0.5)
-    knob.Position          = UDim2.new((initVal-minV)/(maxV-minV),0,0.5,0)
-    knob.BackgroundColor3  = Color3.fromRGB(230,230,255)
-    knob.BorderSizePixel   = 0
-    knob.ZIndex            = 15
-    knob.Parent            = track
+    knob.Size            = UDim2.new(0,14,0,14)
+    knob.AnchorPoint     = Vector2.new(0.5,0.5)
+    knob.Position        = UDim2.new((initVal-minV)/(maxV-minV),0,0.5,0)
+    knob.BackgroundColor3= Color3.fromRGB(230,230,255)
+    knob.BorderSizePixel = 0
+    knob.ZIndex          = 15
+    knob.Parent          = track
     Instance.new("UICorner",knob).CornerRadius = UDim.new(1,0)
 
     local dragging = false
@@ -748,42 +727,40 @@ end
 local function makeKeyRow(tabId, action, key, alt)
     wOrder += 1
     local row = Instance.new("Frame")
-    row.Size               = UDim2.new(1,0,0,28)
-    row.BackgroundColor3   = alt and T.ROW_B or T.ROW_A
-    row.BorderSizePixel    = 0
-    row.LayoutOrder        = wOrder
-    row.ZIndex             = 12
-    row.Parent             = Panel
+    row.Size             = UDim2.new(1,0,0,28)
+    row.BackgroundColor3 = alt and T.ROW_B or T.ROW_A
+    row.BorderSizePixel  = 0
+    row.LayoutOrder      = wOrder
+    row.ZIndex           = 12
+    row.Parent           = Panel
     local la = Instance.new("TextLabel")
-    la.Text                = action
-    la.Size                = UDim2.new(0.6,0,1,0)
-    la.Position            = UDim2.new(0,10,0,0)
+    la.Text              = action
+    la.Size              = UDim2.new(0.6,0,1,0)
+    la.Position          = UDim2.new(0,10,0,0)
     la.BackgroundTransparency = 1
-    la.TextColor3          = T.TXT_DIM
-    la.TextSize            = 12
-    la.Font                = Enum.Font.Gotham
-    la.TextXAlignment      = Enum.TextXAlignment.Left
-    la.ZIndex              = 13
-    la.Parent              = row
+    la.TextColor3        = T.TXT_DIM
+    la.TextSize          = 12
+    la.Font              = Enum.Font.Gotham
+    la.TextXAlignment    = Enum.TextXAlignment.Left
+    la.ZIndex            = 13
+    la.Parent            = row
     local lb = Instance.new("TextLabel")
-    lb.Text                = key
-    lb.Size                = UDim2.new(0.4,-8,1,0)
-    lb.Position            = UDim2.new(0.6,0,0,0)
+    lb.Text              = key
+    lb.Size              = UDim2.new(0.4,-8,1,0)
+    lb.Position          = UDim2.new(0.6,0,0,0)
     lb.BackgroundTransparency = 1
-    lb.TextColor3          = T.TXT_ACC
-    lb.TextSize            = 12
-    lb.Font                = Enum.Font.GothamBold
-    lb.TextXAlignment      = Enum.TextXAlignment.Right
-    lb.ZIndex              = 13
-    lb.Parent              = row
+    lb.TextColor3        = T.TXT_ACC
+    lb.TextSize          = 12
+    lb.Font              = Enum.Font.GothamBold
+    lb.TextXAlignment    = Enum.TextXAlignment.Right
+    lb.ZIndex            = 13
+    lb.Parent            = row
     regWidget(tabId, row)
 end
 
 -- ══════════════════════════════════════════════
 --  POPULATE TABS
 -- ══════════════════════════════════════════════
-
--- ESP tab
 secHeader("ESP","ESP")
 makeToggle("ESP","ESP Enable",   "กรอบ / ชื่อ / HP / ระยะ", CFG.ESP_ENABLED,  function(v) CFG.ESP_ENABLED  =v end)
 makeToggle("ESP","Box",          "",                          CFG.ESP_BOX,      function(v) CFG.ESP_BOX      =v end)
@@ -792,20 +769,19 @@ makeToggle("ESP","Health",       "",                          CFG.ESP_HEALTH,   
 makeToggle("ESP","Distance",     "",                          CFG.ESP_DISTANCE, function(v) CFG.ESP_DISTANCE =v end)
 makeToggle("ESP","Skeleton",     "โครงกระดูกผู้เล่น",        CFG.SKE_ENABLED,  function(v) CFG.SKE_ENABLED  =v end)
 
--- Aimbot tab
 secHeader("Aimbot","AIMBOT")
 makeToggle("Aimbot","Aimbot Enable", "hard-lock หัว",        CFG.AIM_ENABLED,       function(v) CFG.AIM_ENABLED       =v end)
 makeToggle("Aimbot","Show FOV",      "วงกลม crosshair",       CFG.AIM_FOV_VISIBLE,   function(v)
-    CFG.AIM_FOV_VISIBLE=v
-    fovCircle.Visible=v and CFG.AIM_ENABLED
+    CFG.AIM_FOV_VISIBLE = v
+    fovCircle.Visible   = v and CFG.AIM_ENABLED and not mouseUnlocked
 end)
 makeToggle("Aimbot","Visible Check", "ไม่ล็อคคนหลังกำแพง",   CFG.AIM_VISIBLE_CHECK, function(v) CFG.AIM_VISIBLE_CHECK=v end)
 makeToggle("Aimbot","Team Check",    "ข้ามทีมเดียวกัน",       CFG.AIM_TEAM_CHECK,    function(v) CFG.AIM_TEAM_CHECK    =v end)
 makeToggle("Aimbot","Vehicle Lock",  "ล็อคผู้เล่นบนรถได้",    CFG.AIM_VEHICLE,       function(v) CFG.AIM_VEHICLE       =v end)
 secHeader("Aimbot","FOV RADIUS")
 makeSlider("Aimbot","FOV",20,500,CFG.AIM_FOV,function(v) return v.." px" end,function(v)
-    CFG.AIM_FOV=v
-    fovCircle.Radius=v
+    CFG.AIM_FOV      = v
+    fovCircle.Radius = v
 end)
 secHeader("Aimbot","SMOOTH")
 makeSlider("Aimbot","Smooth",1,100,math.floor(CFG.AIM_SMOOTH*100),
@@ -813,14 +789,12 @@ makeSlider("Aimbot","Smooth",1,100,math.floor(CFG.AIM_SMOOTH*100),
     function(v) CFG.AIM_SMOOTH = v/100 end
 )
 
--- Keys tab
 secHeader("Keys","KEYBINDS")
 makeKeyRow("Keys","Lock (hold)",  "E",         false)
 makeKeyRow("Keys","ESP / UI",     "X / INSERT",true)
 makeKeyRow("Keys","FOV  +  / −", "]  /  [",   false)
 makeKeyRow("Keys","Mouse unlock", "ALT",       true)
 
--- Visuals / Fun / Emotes / Sound — placeholder
 for _,tid in ipairs({"Visuals","Fun","Emotes","Sound"}) do
     wOrder += 1
     local ph = Instance.new("TextLabel")
@@ -852,11 +826,9 @@ MinBtn.MouseButton1Click:Connect(function()
     Panel.Visible   = not collapse
     Sidebar.Visible = not collapse
     VDiv.Visible    = not collapse
-    if collapse then
-        Win.Size = UDim2.new(0,WIN_W,0,HDR_H+2)
-    else
-        Win.Size = UDim2.new(0,WIN_W,0,WIN_H)
-    end
+    Win.Size = collapse
+        and UDim2.new(0,WIN_W,0,HDR_H+2)
+        or  UDim2.new(0,WIN_W,0,WIN_H)
 end)
 
 setTab("ESP")
@@ -874,13 +846,11 @@ do
         end
     end)
     UserInputSvc.InputEnded:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
+        if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
     end)
     UserInputSvc.InputChanged:Connect(function(i)
         if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-            local d  = i.Position - dragStart
+            local d = i.Position - dragStart
             Win.Position = UDim2.new(
                 startPos.X.Scale, startPos.X.Offset + d.X,
                 startPos.Y.Scale, startPos.Y.Offset + d.Y
@@ -890,7 +860,7 @@ do
 end
 
 -- ══════════════════════════════════════════════
---  AIMBOT  — smooth, mousemoverel-only (fixed)
+--  AIMBOT — vehicle-aware, smooth, mousemoverel-only
 -- ══════════════════════════════════════════════
 local function getBoneWorldPos(char,boneName)
     local b = char:FindFirstChild(boneName)
@@ -903,7 +873,18 @@ local function getPlayerOnVehicle(plr)
     if not char then return false end
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hum then return false end
-    return hum.SeatPart ~= nil
+    -- SeatPart set → sitting; also check VehicleSeat via character seat weld
+    if hum.SeatPart ~= nil then return true end
+    -- fallback: check for VehicleSeat ancestor on any seat weld
+    for _,v in ipairs(char:GetDescendants()) do
+        if v:IsA("Weld") or v:IsA("WeldConstraint") then
+            local p0 = v:IsA("Weld") and v.Part0 or v.Part0
+            local p1 = v:IsA("Weld") and v.Part1 or v.Part1
+            if p0 and p0:IsA("VehicleSeat") then return true end
+            if p1 and p1:IsA("VehicleSeat") then return true end
+        end
+    end
+    return false
 end
 
 local function getBestTarget()
@@ -916,7 +897,9 @@ local function getBestTarget()
         local char  = getChar(plr)
         local root,human = getRootAndHuman(plr)
         if not char or not root or not human or human.Health <= 0 then continue end
-        if not CFG.AIM_VEHICLE and getPlayerOnVehicle(plr) then continue end
+        -- AIM_VEHICLE=true  → lock everyone including vehicle riders  (skip nothing)
+        -- AIM_VEHICLE=false → skip vehicle riders
+        if CFG.AIM_VEHICLE == false and getPlayerOnVehicle(plr) then continue end
         local bone = getTargetBone(char)
         if not bone then continue end
         local bonePos = bone.CFrame.Position + CFG.AIM_HEAD_OFFSET
@@ -934,7 +917,6 @@ local function doAimbot()
         lockedTarget = nil return
     end
 
-    -- validate existing lock
     if lockedTarget then
         local char  = getChar(lockedTarget)
         local _,human = getRootAndHuman(lockedTarget)
@@ -946,12 +928,11 @@ local function doAimbot()
                 lockedTarget = nil
             end
         end
-        if lockedTarget and not CFG.AIM_VEHICLE and getPlayerOnVehicle(lockedTarget) then
+        if lockedTarget and CFG.AIM_VEHICLE == false and getPlayerOnVehicle(lockedTarget) then
             lockedTarget = nil
         end
     end
 
-    -- acquire
     if not lockedTarget then lockedTarget = getBestTarget() end
     if not lockedTarget then return end
 
@@ -959,24 +940,18 @@ local function doAimbot()
     local bone = char and getTargetBone(char)
     if not bone then lockedTarget = nil return end
 
-    local bonePos  = bone.CFrame.Position + CFG.AIM_HEAD_OFFSET
-    local screen2d, onScreen = worldToScreen(bonePos)
+    local bonePos        = bone.CFrame.Position + CFG.AIM_HEAD_OFFSET
+    local screen2d,onScreen = worldToScreen(bonePos)
     if not onScreen then lockedTarget = nil return end
 
     local vp     = Camera.ViewportSize
-    local center = Vector2.new(vp.X / 2, vp.Y / 2)
+    local center = Vector2.new(vp.X/2, vp.Y/2)
     local delta  = screen2d - center
 
-    -- bail if outside FOV ring
-    if delta.Magnitude > CFG.AIM_FOV then
-        lockedTarget = nil return
-    end
+    if delta.Magnitude > CFG.AIM_FOV then lockedTarget = nil return end
 
-    -- smooth lerp: AIM_SMOOTH=1.0 → snap, 0.01 → butter slow
     local step = math.clamp(CFG.AIM_SMOOTH, 0.01, 1.0)
-    local move = delta * step
-
-    mousemoverel(move.X, move.Y)
+    mousemoverel(delta.X * step, delta.Y * step)
 end
 
 -- ══════════════════════════════════════════════
@@ -1008,7 +983,15 @@ UserInputSvc.InputBegan:Connect(function(input,gpe)
     end
     if input.KeyCode == CFG.KEY_MOUSE_TOGGLE then
         if uiVisible then
-            if mouseUnlocked then lockMouse() else unlockMouse() end
+            if mouseUnlocked then
+                lockMouse()
+                -- restore FOV circle when mouse re-locks
+                fovCircle.Visible = CFG.AIM_FOV_VISIBLE and CFG.AIM_ENABLED
+            else
+                unlockMouse()
+                -- hide FOV circle while mouse is free
+                fovCircle.Visible = false
+            end
         end
         return
     end
@@ -1023,11 +1006,11 @@ UserInputSvc.InputBegan:Connect(function(input,gpe)
         end
     end
     if input.KeyCode == CFG.KEY_FOV_UP then
-        CFG.AIM_FOV = math.min(CFG.AIM_FOV + 10, 500)
+        CFG.AIM_FOV      = math.min(CFG.AIM_FOV + 10, 500)
         fovCircle.Radius = CFG.AIM_FOV
     end
     if input.KeyCode == CFG.KEY_FOV_DOWN then
-        CFG.AIM_FOV = math.max(CFG.AIM_FOV - 10, 20)
+        CFG.AIM_FOV      = math.max(CFG.AIM_FOV - 10, 20)
         fovCircle.Radius = CFG.AIM_FOV
     end
 end)
@@ -1044,10 +1027,10 @@ end)
 RunService.RenderStepped:Connect(function()
     doAimbot()
     fovCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-    fovCircle.Visible  = CFG.AIM_FOV_VISIBLE and CFG.AIM_ENABLED
+    -- main loop never overrides ALT-hide state — only sync radius
     for _,plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer then updateESP(plr) end
     end
 end)
 
-print("[ STEPTHEP v1.1 ] loaded — INSERT/X=menu | ALT=mouse | E=lock")
+print("[ STEPTHEP v1.1 ] loaded — INSERT/X=menu | ALT=mouse+FOV | E=lock")
