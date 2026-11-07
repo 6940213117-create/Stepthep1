@@ -5,27 +5,27 @@
 -- ╚══════════════════════════════════════════════════════╝
 
 -- ══════════════════════════════════════════════
---  CONFIG
+--  CONFIG  — ทุกฟีเจอร์ off เริ่มต้น
 -- ══════════════════════════════════════════════
 local CFG = {
-    ESP_ENABLED       = true,
-    ESP_BOX           = true,
-    ESP_NAME          = true,
-    ESP_HEALTH        = true,
-    ESP_DISTANCE      = true,
+    ESP_ENABLED       = false,
+    ESP_BOX           = false,
+    ESP_NAME          = false,
+    ESP_HEALTH        = false,
+    ESP_DISTANCE      = false,
     ESP_COLOR         = Color3.fromRGB(80, 160, 255),
     ESP_THICKNESS     = 1.5,
-    SKE_ENABLED       = true,
+    SKE_ENABLED       = false,
     SKE_COLOR         = Color3.fromRGB(255, 210, 80),
     SKE_THICKNESS     = 1.2,
-    AIM_ENABLED       = true,
+    AIM_ENABLED       = false,
     AIM_FOV           = 120,
-    AIM_FOV_VISIBLE   = true,
+    AIM_FOV_VISIBLE   = false,
     AIM_FOV_COLOR     = Color3.fromRGB(255, 255, 255),
     AIM_BONE          = "Head",
-    AIM_TEAM_CHECK    = true,
-    AIM_VISIBLE_CHECK = true,
-    AIM_VEHICLE       = true,
+    AIM_TEAM_CHECK    = false,
+    AIM_VISIBLE_CHECK = false,
+    AIM_VEHICLE       = false,
     AIM_HEAD_OFFSET   = Vector3.new(0, 0, 0),
     AIM_SMOOTH        = 0.25,
     KEY_LOCK         = Enum.KeyCode.E,
@@ -94,7 +94,7 @@ local function newDraw(t, props)
 end
 
 local fovCircle = newDraw("Circle",{
-    Visible   = CFG.AIM_FOV_VISIBLE,
+    Visible   = false,
     Radius    = CFG.AIM_FOV,
     Color     = CFG.AIM_FOV_COLOR,
     Thickness = 1,
@@ -256,7 +256,7 @@ local function updateESP(plr)
 end
 
 -- ══════════════════════════════════════════════
---  UI  — STEPTHEP  (Sakura-Hub style sidebar)
+--  UI
 -- ══════════════════════════════════════════════
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name            = "STEPTHEP_UI"
@@ -288,10 +288,10 @@ local T = {
     PILL_OFF   = Color3.fromRGB(55,55,70),
 }
 
-local WIN_W    = 420
-local WIN_H    = 310
-local SIDE_W   = 108
-local HDR_H    = 42
+local WIN_W  = 420
+local WIN_H  = 310
+local SIDE_W = 108
+local HDR_H  = 42
 
 local Win = Instance.new("Frame")
 Win.Name               = "Win"
@@ -305,10 +305,10 @@ Win.Parent             = ScreenGui
 Instance.new("UICorner",Win).CornerRadius = UDim.new(0,8)
 
 local WinStroke = Instance.new("UIStroke")
-WinStroke.Color       = Color3.fromRGB(0,0,0)
-WinStroke.Thickness   = 2
-WinStroke.Transparency= 0.5
-WinStroke.Parent      = Win
+WinStroke.Color        = Color3.fromRGB(0,0,0)
+WinStroke.Thickness    = 2
+WinStroke.Transparency = 0.5
+WinStroke.Parent       = Win
 
 local Header = Instance.new("Frame")
 Header.Name            = "Header"
@@ -374,7 +374,7 @@ CloseBtn.BackgroundColor3 = T.CLOSE
 CloseBtn.TextColor3    = Color3.new(1,1,1)
 CloseBtn.TextSize      = 16
 CloseBtn.Font          = Enum.Font.GothamBold
-CloseBtn.BorderSizePixel=0
+CloseBtn.BorderSizePixel = 0
 CloseBtn.ZIndex        = 13
 CloseBtn.Parent        = Header
 Instance.new("UICorner",CloseBtn).CornerRadius = UDim.new(0,4)
@@ -415,10 +415,10 @@ Panel.Size             = UDim2.new(1,-SIDE_W-1,1,-HDR_H-1)
 Panel.Position         = UDim2.new(0,SIDE_W+1,0,HDR_H+1)
 Panel.BackgroundColor3 = T.PANEL
 Panel.BorderSizePixel  = 0
-Panel.ScrollBarThickness = 3
+Panel.ScrollBarThickness   = 3
 Panel.ScrollBarImageColor3 = T.ACCENT
-Panel.CanvasSize       = UDim2.new(0,0,0,0)
-Panel.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Panel.CanvasSize           = UDim2.new(0,0,0,0)
+Panel.AutomaticCanvasSize  = Enum.AutomaticSize.Y
 Panel.ZIndex           = 11
 Panel.Parent           = Win
 
@@ -455,7 +455,7 @@ local function setTab(id)
     for _,children in pairs(tabContents) do
         for _,w in ipairs(children) do w.Visible = false end
     end
-    for tid,btn in pairs(tabButtons) do
+    for _,btn in pairs(tabButtons) do
         btn.BackgroundColor3       = T.SIDEBAR
         btn.BackgroundTransparency = 1
         btn.TextColor3             = T.TXT_DIM
@@ -862,24 +862,16 @@ end
 -- ══════════════════════════════════════════════
 --  AIMBOT — vehicle-aware, smooth, mousemoverel-only
 -- ══════════════════════════════════════════════
-local function getBoneWorldPos(char,boneName)
-    local b = char:FindFirstChild(boneName)
-    if b then return b.Position end
-    return nil
-end
-
 local function getPlayerOnVehicle(plr)
     local char = getChar(plr)
     if not char then return false end
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hum then return false end
-    -- SeatPart set → sitting; also check VehicleSeat via character seat weld
     if hum.SeatPart ~= nil then return true end
-    -- fallback: check for VehicleSeat ancestor on any seat weld
     for _,v in ipairs(char:GetDescendants()) do
         if v:IsA("Weld") or v:IsA("WeldConstraint") then
-            local p0 = v:IsA("Weld") and v.Part0 or v.Part0
-            local p1 = v:IsA("Weld") and v.Part1 or v.Part1
+            local p0 = v.Part0
+            local p1 = v.Part1
             if p0 and p0:IsA("VehicleSeat") then return true end
             if p1 and p1:IsA("VehicleSeat") then return true end
         end
@@ -897,8 +889,6 @@ local function getBestTarget()
         local char  = getChar(plr)
         local root,human = getRootAndHuman(plr)
         if not char or not root or not human or human.Health <= 0 then continue end
-        -- AIM_VEHICLE=true  → lock everyone including vehicle riders  (skip nothing)
-        -- AIM_VEHICLE=false → skip vehicle riders
         if CFG.AIM_VEHICLE == false and getPlayerOnVehicle(plr) then continue end
         local bone = getTargetBone(char)
         if not bone then continue end
@@ -916,7 +906,6 @@ local function doAimbot()
     if not CFG.AIM_ENABLED or not aimActive or mouseUnlocked then
         lockedTarget = nil return
     end
-
     if lockedTarget then
         local char  = getChar(lockedTarget)
         local _,human = getRootAndHuman(lockedTarget)
@@ -932,7 +921,6 @@ local function doAimbot()
             lockedTarget = nil
         end
     end
-
     if not lockedTarget then lockedTarget = getBestTarget() end
     if not lockedTarget then return end
 
@@ -975,28 +963,32 @@ end)
 Players.PlayerRemoving:Connect(removeESP)
 
 -- ══════════════════════════════════════════════
---  INPUT
+--  INPUT — ALT ทำงานตลอด ไม่ต้องเปิดเมนูก่อน
 -- ══════════════════════════════════════════════
-UserInputSvc.InputBegan:Connect(function(input,gpe)
+UserInputSvc.InputBegan:Connect(function(input, gpe)
+    -- INSERT: toggle UI — no gpe check, fires always
     if input.KeyCode == CFG.KEY_UI_TOGGLE then
-        setUIVisible(not uiVisible) return
+        setUIVisible(not uiVisible)
+        return
     end
+
+    -- ALT: toggle mouse + FOV — no gpe check, fires always, no uiVisible gate
     if input.KeyCode == CFG.KEY_MOUSE_TOGGLE then
-        if uiVisible then
-            if mouseUnlocked then
-                lockMouse()
-                -- restore FOV circle when mouse re-locks
-                fovCircle.Visible = CFG.AIM_FOV_VISIBLE and CFG.AIM_ENABLED
-            else
-                unlockMouse()
-                -- hide FOV circle while mouse is free
-                fovCircle.Visible = false
-            end
+        if mouseUnlocked then
+            lockMouse()
+            fovCircle.Visible = CFG.AIM_FOV_VISIBLE and CFG.AIM_ENABLED
+        else
+            unlockMouse()
+            fovCircle.Visible = false
         end
         return
     end
+
+    -- everything else: respect gpe so UI clicks don't bleed through
     if gpe then return end
+
     if input.KeyCode == CFG.KEY_LOCK then aimActive = true end
+
     if input.KeyCode == CFG.KEY_ESP_TOGGLE then
         CFG.ESP_ENABLED = not CFG.ESP_ENABLED
         if not CFG.ESP_ENABLED then
@@ -1005,10 +997,12 @@ UserInputSvc.InputBegan:Connect(function(input,gpe)
             end
         end
     end
+
     if input.KeyCode == CFG.KEY_FOV_UP then
         CFG.AIM_FOV      = math.min(CFG.AIM_FOV + 10, 500)
         fovCircle.Radius = CFG.AIM_FOV
     end
+
     if input.KeyCode == CFG.KEY_FOV_DOWN then
         CFG.AIM_FOV      = math.max(CFG.AIM_FOV - 10, 20)
         fovCircle.Radius = CFG.AIM_FOV
@@ -1017,7 +1011,8 @@ end)
 
 UserInputSvc.InputEnded:Connect(function(input)
     if input.KeyCode == CFG.KEY_LOCK then
-        aimActive = false lockedTarget = nil
+        aimActive = false
+        lockedTarget = nil
     end
 end)
 
@@ -1027,10 +1022,9 @@ end)
 RunService.RenderStepped:Connect(function()
     doAimbot()
     fovCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-    -- main loop never overrides ALT-hide state — only sync radius
     for _,plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer then updateESP(plr) end
     end
 end)
 
-print("[ STEPTHEP v1.1 ] loaded — INSERT/X=menu | ALT=mouse+FOV | E=lock")
+print("[ STEPTHEP v1.1 ] loaded — INSERT=menu | ALT=mouse(ตลอด) | E=lock")
