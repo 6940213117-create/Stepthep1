@@ -1,12 +1,11 @@
 -- ╔══════════════════════════════════════════════════════╗
--- ║          STEPTHEP  v1.3  |  Urban Reload            ║
+-- ║          STEPTHEP  v1.1  |  Urban Reload            ║
 -- ║   ESP · Skeleton · FOV Aimbot · Vehicle Lock        ║
 -- ║   Executor: Xeno / Synapse X / UNC-compliant        ║
--- ║   PATCH: velocity accumulator, converge lock        ║
 -- ╚══════════════════════════════════════════════════════╝
 
 -- ══════════════════════════════════════════════
---  CONFIG
+--  CONFIG  — ทุกฟีเจอร์ off เริ่มต้น
 -- ══════════════════════════════════════════════
 local CFG = {
     ESP_ENABLED       = false,
@@ -28,7 +27,7 @@ local CFG = {
     AIM_VISIBLE_CHECK = false,
     AIM_VEHICLE       = false,
     AIM_HEAD_OFFSET   = Vector3.new(0, 0, 0),
-    AIM_SMOOTH        = 0.75,  -- 0=snap 1=slowest
+    AIM_SMOOTH        = 0.25,
     KEY_LOCK         = Enum.KeyCode.E,
     KEY_ESP_TOGGLE   = Enum.KeyCode.X,
     KEY_FOV_UP       = Enum.KeyCode.RightBracket,
@@ -54,10 +53,8 @@ local espObjects    = {}
 local skelObjects   = {}
 local lockedTarget  = nil
 local aimActive     = false
-local aimVelocity   = Vector2.new(0, 0)
 local uiVisible     = true
 local mouseUnlocked = false
-local renderConn    = nil
 
 local BONE_PAIRS = {
     {"Head","UpperTorso"},  {"Head","Torso"},
@@ -97,7 +94,7 @@ local function newDraw(t, props)
 end
 
 local fovCircle = newDraw("Circle",{
-    Visible   = CFG.AIM_FOV_VISIBLE,
+    Visible   = false,
     Radius    = CFG.AIM_FOV,
     Color     = CFG.AIM_FOV_COLOR,
     Thickness = 1,
@@ -143,6 +140,14 @@ local function isVisible(char, bonePos)
     local hit    = workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character})
     if hit == nil then return true end
     return char:IsAncestorOf(hit) or hit:IsDescendantOf(char)
+end
+
+local function getPlayerRootPos(plr)
+    local char = getChar(plr)
+    if not char then return nil end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+    return root.Position
 end
 
 -- ══════════════════════════════════════════════
@@ -337,7 +342,7 @@ HTitle.ZIndex          = 12
 HTitle.Parent          = Header
 
 local HSub = Instance.new("TextLabel")
-HSub.Text              = "Urban Reload v1.3"
+HSub.Text              = "Urban Reload v1.1"
 HSub.Size              = UDim2.new(0,160,0,13)
 HSub.Position          = UDim2.new(0,40,0,24)
 HSub.BackgroundTransparency = 1
@@ -392,9 +397,9 @@ Sidebar.ZIndex         = 11
 Sidebar.Parent         = Win
 
 local SideLayout = Instance.new("UIListLayout")
-SideLayout.SortOrder  = Enum.SortOrder.LayoutOrder
-SideLayout.Padding    = UDim.new(0,0)
-SideLayout.Parent     = Sidebar
+SideLayout.SortOrder   = Enum.SortOrder.LayoutOrder
+SideLayout.Padding     = UDim.new(0,0)
+SideLayout.Parent      = Sidebar
 
 local VDiv = Instance.new("Frame")
 VDiv.Size              = UDim2.new(0,1,1,-HDR_H-1)
@@ -418,9 +423,9 @@ Panel.ZIndex           = 11
 Panel.Parent           = Win
 
 local PanelLayout = Instance.new("UIListLayout")
-PanelLayout.SortOrder = Enum.SortOrder.LayoutOrder
-PanelLayout.Padding   = UDim.new(0,0)
-PanelLayout.Parent    = Panel
+PanelLayout.SortOrder  = Enum.SortOrder.LayoutOrder
+PanelLayout.Padding    = UDim.new(0,0)
+PanelLayout.Parent     = Panel
 
 local PanelPad = Instance.new("UIPadding")
 PanelPad.PaddingLeft   = UDim.new(0,8)
@@ -450,7 +455,7 @@ local function setTab(id)
     for _,children in pairs(tabContents) do
         for _,w in ipairs(children) do w.Visible = false end
     end
-    for tid,btn in pairs(tabButtons) do
+    for _,btn in pairs(tabButtons) do
         btn.BackgroundColor3       = T.SIDEBAR
         btn.BackgroundTransparency = 1
         btn.TextColor3             = T.TXT_DIM
@@ -774,21 +779,21 @@ makeToggle("Aimbot","Visible Check", "ไม่ล็อคคนหลังก
 makeToggle("Aimbot","Team Check",    "ข้ามทีมเดียวกัน",       CFG.AIM_TEAM_CHECK,    function(v) CFG.AIM_TEAM_CHECK    =v end)
 makeToggle("Aimbot","Vehicle Lock",  "ล็อคผู้เล่นบนรถได้",    CFG.AIM_VEHICLE,       function(v) CFG.AIM_VEHICLE       =v end)
 secHeader("Aimbot","FOV RADIUS")
-makeSlider("Aimbot","FOV",20,500,CFG.AIM_FOV,
-    function(v) return v.." px" end,
-    function(v) CFG.AIM_FOV=v fovCircle.Radius=v end
-)
+makeSlider("Aimbot","FOV",20,500,CFG.AIM_FOV,function(v) return v.." px" end,function(v)
+    CFG.AIM_FOV      = v
+    fovCircle.Radius = v
+end)
 secHeader("Aimbot","SMOOTH")
 makeSlider("Aimbot","Smooth",1,100,math.floor(CFG.AIM_SMOOTH*100),
     function(v) return v.."%" end,
-    function(v) CFG.AIM_SMOOTH=v/100 end
+    function(v) CFG.AIM_SMOOTH = v/100 end
 )
 
 secHeader("Keys","KEYBINDS")
-makeKeyRow("Keys","Lock (hold)",  "E",          false)
-makeKeyRow("Keys","ESP / UI",     "X / INSERT", true)
-makeKeyRow("Keys","FOV  +  / −", "]  /  [",    false)
-makeKeyRow("Keys","Mouse unlock", "ALT",        true)
+makeKeyRow("Keys","Lock (hold)",  "E",         false)
+makeKeyRow("Keys","ESP / UI",     "X / INSERT",true)
+makeKeyRow("Keys","FOV  +  / −", "]  /  [",   false)
+makeKeyRow("Keys","Mouse unlock", "ALT",       true)
 
 for _,tid in ipairs({"Visuals","Fun","Emotes","Sound"}) do
     wOrder += 1
@@ -806,7 +811,7 @@ for _,tid in ipairs({"Visuals","Fun","Emotes","Sound"}) do
 end
 
 -- ══════════════════════════════════════════════
---  UI SHOW/HIDE + DRAG
+--  UI SHOW/HIDE
 -- ══════════════════════════════════════════════
 local function setUIVisible(v)
     uiVisible   = v
@@ -815,6 +820,7 @@ local function setUIVisible(v)
 end
 
 CloseBtn.MouseButton1Click:Connect(function() setUIVisible(false) end)
+
 MinBtn.MouseButton1Click:Connect(function()
     local collapse = Panel.Visible
     Panel.Visible   = not collapse
@@ -827,6 +833,9 @@ end)
 
 setTab("ESP")
 
+-- ══════════════════════════════════════════════
+--  DRAG
+-- ══════════════════════════════════════════════
 do
     local dragging, dragStart, startPos
     Header.InputBegan:Connect(function(i)
@@ -851,7 +860,7 @@ do
 end
 
 -- ══════════════════════════════════════════════
---  AIMBOT — velocity accumulator, converge lock
+--  AIMBOT — vehicle-aware, smooth, mousemoverel-only
 -- ══════════════════════════════════════════════
 local function getPlayerOnVehicle(plr)
     local char = getChar(plr)
@@ -877,13 +886,13 @@ local function getBestTarget()
     for _,plr in ipairs(Players:GetPlayers()) do
         if plr == LocalPlayer then continue end
         if isTeammate(plr) then continue end
-        local char       = getChar(plr)
+        local char  = getChar(plr)
         local root,human = getRootAndHuman(plr)
         if not char or not root or not human or human.Health <= 0 then continue end
-        if not CFG.AIM_VEHICLE and getPlayerOnVehicle(plr) then continue end
+        if CFG.AIM_VEHICLE == false and getPlayerOnVehicle(plr) then continue end
         local bone = getTargetBone(char)
         if not bone then continue end
-        local bonePos        = bone.CFrame.Position + CFG.AIM_HEAD_OFFSET
+        local bonePos = bone.CFrame.Position + CFG.AIM_HEAD_OFFSET
         local screen2d,onScreen = worldToScreen(bonePos)
         if not onScreen then continue end
         if CFG.AIM_VISIBLE_CHECK and not isVisible(char,bonePos) then continue end
@@ -893,17 +902,13 @@ local function getBestTarget()
     return bestPlr
 end
 
-local function doAimbot(dt)
+local function doAimbot()
     if not CFG.AIM_ENABLED or not aimActive or mouseUnlocked then
-        lockedTarget = nil
-        aimVelocity  = Vector2.new(0,0)
-        return
+        lockedTarget = nil return
     end
-
-    -- validate existing lock
     if lockedTarget then
-        local char     = getChar(lockedTarget)
-        local _,human  = getRootAndHuman(lockedTarget)
+        local char  = getChar(lockedTarget)
+        local _,human = getRootAndHuman(lockedTarget)
         if not human or human.Health <= 0 then
             lockedTarget = nil
         elseif CFG.AIM_VISIBLE_CHECK and char then
@@ -912,52 +917,29 @@ local function doAimbot(dt)
                 lockedTarget = nil
             end
         end
-        if lockedTarget and not CFG.AIM_VEHICLE and getPlayerOnVehicle(lockedTarget) then
+        if lockedTarget and CFG.AIM_VEHICLE == false and getPlayerOnVehicle(lockedTarget) then
             lockedTarget = nil
         end
     end
-
-    if not lockedTarget then
-        lockedTarget = getBestTarget()
-        aimVelocity  = Vector2.new(0,0)  -- reset velocity on new target
-    end
+    if not lockedTarget then lockedTarget = getBestTarget() end
     if not lockedTarget then return end
 
     local char = getChar(lockedTarget)
     local bone = char and getTargetBone(char)
     if not bone then lockedTarget = nil return end
 
-    local bonePos            = bone.CFrame.Position + CFG.AIM_HEAD_OFFSET
-    local screen2d, onScreen = worldToScreen(bonePos)
+    local bonePos        = bone.CFrame.Position + CFG.AIM_HEAD_OFFSET
+    local screen2d,onScreen = worldToScreen(bonePos)
     if not onScreen then lockedTarget = nil return end
 
     local vp     = Camera.ViewportSize
     local center = Vector2.new(vp.X/2, vp.Y/2)
     local delta  = screen2d - center
 
-    if delta.Magnitude > CFG.AIM_FOV then
-        lockedTarget = nil
-        aimVelocity  = Vector2.new(0,0)
-        return
-    end
+    if delta.Magnitude > CFG.AIM_FOV then lockedTarget = nil return end
 
-    -- velocity accumulator: smoothFactor = 1-AIM_SMOOTH
-    -- slider ต่ำ (snap) → smoothFactor สูง → เข้าเร็ว
-    -- slider สูง (smooth) → smoothFactor ต่ำ → เข้าช้า
-    local smoothFactor = math.clamp(1 - CFG.AIM_SMOOTH, 0.05, 0.99)
-    aimVelocity = Vector2.new(
-        aimVelocity.X + (delta.X - aimVelocity.X) * smoothFactor,
-        aimVelocity.Y + (delta.Y - aimVelocity.Y) * smoothFactor
-    )
-
-    -- clamp ไม่ให้ overshoot
-    local moveX = math.clamp(aimVelocity.X, -math.abs(delta.X), math.abs(delta.X))
-    local moveY = math.clamp(aimVelocity.Y, -math.abs(delta.Y), math.abs(delta.Y))
-
-    -- threshold ป้องกัน micro-jitter ตอน lock แนบหัวแล้ว
-    if math.abs(moveX) > 0.3 or math.abs(moveY) > 0.3 then
-        mousemoverel(moveX, moveY)
-    end
+    local step = math.clamp(CFG.AIM_SMOOTH, 0.01, 1.0)
+    mousemoverel(delta.X * step, delta.Y * step)
 end
 
 -- ══════════════════════════════════════════════
@@ -981,29 +963,32 @@ end)
 Players.PlayerRemoving:Connect(removeESP)
 
 -- ══════════════════════════════════════════════
---  INPUT
+--  INPUT — ALT ทำงานตลอด ไม่ต้องเปิดเมนูก่อน
 -- ══════════════════════════════════════════════
 UserInputSvc.InputBegan:Connect(function(input, gpe)
+    -- INSERT: toggle UI — no gpe check, fires always
     if input.KeyCode == CFG.KEY_UI_TOGGLE then
-        setUIVisible(not uiVisible) return
+        setUIVisible(not uiVisible)
+        return
     end
+
+    -- ALT: toggle mouse + FOV — no gpe check, fires always, no uiVisible gate
     if input.KeyCode == CFG.KEY_MOUSE_TOGGLE then
-        if uiVisible then
-            if mouseUnlocked then
-                lockMouse()
-                fovCircle.Visible = CFG.AIM_FOV_VISIBLE and CFG.AIM_ENABLED
-            else
-                unlockMouse()
-                fovCircle.Visible = false
-            end
+        if mouseUnlocked then
+            lockMouse()
+            fovCircle.Visible = CFG.AIM_FOV_VISIBLE and CFG.AIM_ENABLED
+        else
+            unlockMouse()
+            fovCircle.Visible = false
         end
         return
     end
+
+    -- everything else: respect gpe so UI clicks don't bleed through
     if gpe then return end
-    if input.KeyCode == CFG.KEY_LOCK then
-        aimActive   = true
-        aimVelocity = Vector2.new(0,0)  -- reset on fresh press
-    end
+
+    if input.KeyCode == CFG.KEY_LOCK then aimActive = true end
+
     if input.KeyCode == CFG.KEY_ESP_TOGGLE then
         CFG.ESP_ENABLED = not CFG.ESP_ENABLED
         if not CFG.ESP_ENABLED then
@@ -1012,10 +997,12 @@ UserInputSvc.InputBegan:Connect(function(input, gpe)
             end
         end
     end
+
     if input.KeyCode == CFG.KEY_FOV_UP then
         CFG.AIM_FOV      = math.min(CFG.AIM_FOV + 10, 500)
         fovCircle.Radius = CFG.AIM_FOV
     end
+
     if input.KeyCode == CFG.KEY_FOV_DOWN then
         CFG.AIM_FOV      = math.max(CFG.AIM_FOV - 10, 20)
         fovCircle.Radius = CFG.AIM_FOV
@@ -1024,22 +1011,20 @@ end)
 
 UserInputSvc.InputEnded:Connect(function(input)
     if input.KeyCode == CFG.KEY_LOCK then
-        aimActive    = false
+        aimActive = false
         lockedTarget = nil
-        aimVelocity  = Vector2.new(0,0)
     end
 end)
 
 -- ══════════════════════════════════════════════
 --  MAIN LOOP
 -- ══════════════════════════════════════════════
-if renderConn then renderConn:Disconnect() end
-renderConn = RunService.RenderStepped:Connect(function(dt)
-    doAimbot(dt)
+RunService.RenderStepped:Connect(function()
+    doAimbot()
     fovCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
     for _,plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer then updateESP(plr) end
     end
 end)
 
-print("[ STEPTHEP v1.3 ] loaded — INSERT/X=menu | ALT=mouse+FOV | E=lock")
+print("[ STEPTHEP v1.1 ] loaded — INSERT=menu | ALT=mouse(ตลอด) | E=lock")
