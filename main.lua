@@ -1,7 +1,8 @@
 -- ╔══════════════════════════════════════════════════════╗
--- ║          STEPTHEP  v1.1  |  Urban Reload            ║
+-- ║          STEPTHEP  v1.2  |  Urban Reload            ║
 -- ║   ESP · Skeleton · FOV Aimbot · Vehicle Lock        ║
 -- ║   Executor: Xeno / Synapse X / UNC-compliant        ║
+-- ║   PATCH: dt-normalized smooth, disconnect guard     ║
 -- ╚══════════════════════════════════════════════════════╝
 
 -- ══════════════════════════════════════════════
@@ -55,6 +56,7 @@ local lockedTarget  = nil
 local aimActive     = false
 local uiVisible     = true
 local mouseUnlocked = false
+local renderConn    = nil  -- PATCH: disconnect guard
 
 local BONE_PAIRS = {
     {"Head","UpperTorso"},  {"Head","Torso"},
@@ -342,7 +344,7 @@ HTitle.ZIndex          = 12
 HTitle.Parent          = Header
 
 local HSub = Instance.new("TextLabel")
-HSub.Text              = "Urban Reload v1.1"
+HSub.Text              = "Urban Reload v1.2"
 HSub.Size              = UDim2.new(0,160,0,13)
 HSub.Position          = UDim2.new(0,40,0,24)
 HSub.BackgroundTransparency = 1
@@ -860,22 +862,14 @@ do
 end
 
 -- ══════════════════════════════════════════════
---  AIMBOT — vehicle-aware, smooth, mousemoverel-only
+--  AIMBOT — vehicle-aware, dt-normalised smooth
 -- ══════════════════════════════════════════════
-local function getBoneWorldPos(char,boneName)
-    local b = char:FindFirstChild(boneName)
-    if b then return b.Position end
-    return nil
-end
-
 local function getPlayerOnVehicle(plr)
     local char = getChar(plr)
     if not char then return false end
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hum then return false end
-    -- SeatPart set → sitting; also check VehicleSeat via character seat weld
     if hum.SeatPart ~= nil then return true end
-    -- fallback: check for VehicleSeat ancestor on any seat weld
     for _,v in ipairs(char:GetDescendants()) do
         if v:IsA("Weld") or v:IsA("WeldConstraint") then
             local p0 = v:IsA("Weld") and v.Part0 or v.Part0
@@ -897,8 +891,6 @@ local function getBestTarget()
         local char  = getChar(plr)
         local root,human = getRootAndHuman(plr)
         if not char or not root or not human or human.Health <= 0 then continue end
-        -- AIM_VEHICLE=true  → lock everyone including vehicle riders  (skip nothing)
-        -- AIM_VEHICLE=false → skip vehicle riders
         if CFG.AIM_VEHICLE == false and getPlayerOnVehicle(plr) then continue end
         local bone = getTargetBone(char)
         if not bone then continue end
@@ -912,7 +904,8 @@ local function getBestTarget()
     return bestPlr
 end
 
-local function doAimbot()
+-- PATCH: รับ dt เพื่อ normalize smooth ทุก machine
+local function doAimbot(dt)
     if not CFG.AIM_ENABLED or not aimActive or mouseUnlocked then
         lockedTarget = nil return
     end
@@ -950,7 +943,8 @@ local function doAimbot()
 
     if delta.Magnitude > CFG.AIM_FOV then lockedTarget = nil return end
 
-    local step = math.clamp(CFG.AIM_SMOOTH, 0.01, 1.0)
+    -- PATCH: คูณ dt*60 เพื่อให้ smooth เท่ากันทุก fps
+    local step = math.clamp(CFG.AIM_SMOOTH * (dt * 60), 0.01, 1.0)
     mousemoverel(delta.X * step, delta.Y * step)
 end
 
@@ -985,11 +979,9 @@ UserInputSvc.InputBegan:Connect(function(input,gpe)
         if uiVisible then
             if mouseUnlocked then
                 lockMouse()
-                -- restore FOV circle when mouse re-locks
                 fovCircle.Visible = CFG.AIM_FOV_VISIBLE and CFG.AIM_ENABLED
             else
                 unlockMouse()
-                -- hide FOV circle while mouse is free
                 fovCircle.Visible = false
             end
         end
@@ -1022,15 +1014,15 @@ UserInputSvc.InputEnded:Connect(function(input)
 end)
 
 -- ══════════════════════════════════════════════
---  MAIN LOOP
+--  MAIN LOOP — PATCH: disconnect guard + dt pass
 -- ══════════════════════════════════════════════
-RunService.RenderStepped:Connect(function()
-    doAimbot()
+if renderConn then renderConn:Disconnect() end
+renderConn = RunService.RenderStepped:Connect(function(dt)
+    doAimbot(dt)
     fovCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-    -- main loop never overrides ALT-hide state — only sync radius
     for _,plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer then updateESP(plr) end
     end
 end)
 
-print("[ STEPTHEP v1.1 ] loaded — INSERT/X=menu | ALT=mouse+FOV | E=lock")
+print("[ STEPTHEP v1.2 ] loaded — INSERT/X=menu | ALT=mouse+FOV | E=lock")
