@@ -5,7 +5,7 @@
 -- ╚══════════════════════════════════════════════════════╝
 
 -- ══════════════════════════════════════════════
---  CONFIG  — ทุกฟีเจอร์ off เริ่มต้น
+--  CONFIG
 -- ══════════════════════════════════════════════
 local CFG = {
     ESP_ENABLED       = false,
@@ -28,12 +28,12 @@ local CFG = {
     AIM_VEHICLE       = false,
     AIM_HEAD_OFFSET   = Vector3.new(0, 0, 0),
     AIM_SMOOTH        = 0.25,
-    KEY_LOCK          = Enum.KeyCode.E,
-    KEY_ESP_TOGGLE    = Enum.KeyCode.X,
-    KEY_FOV_UP        = Enum.KeyCode.RightBracket,
-    KEY_FOV_DOWN      = Enum.KeyCode.LeftBracket,
-    KEY_UI_TOGGLE     = Enum.KeyCode.Insert,
-    KEY_MOUSE_TOGGLE  = Enum.KeyCode.LeftAlt,
+    KEY_LOCK         = Enum.KeyCode.E,
+    KEY_ESP_TOGGLE   = Enum.KeyCode.X,
+    KEY_FOV_UP       = Enum.KeyCode.RightBracket,
+    KEY_FOV_DOWN     = Enum.KeyCode.LeftBracket,
+    KEY_UI_TOGGLE    = Enum.KeyCode.Insert,
+    KEY_MOUSE_TOGGLE = Enum.KeyCode.LeftAlt,
 }
 
 -- ══════════════════════════════════════════════
@@ -49,25 +49,25 @@ local LocalPlayer  = Players.LocalPlayer
 -- ══════════════════════════════════════════════
 --  STATE
 -- ══════════════════════════════════════════════
-local espObjects   = {}
-local skelObjects  = {}
-local lockedTarget = nil
-local aimActive    = false
-local uiVisible    = true
-local mouseUnlocked= false
+local espObjects    = {}
+local skelObjects   = {}
+local lockedTarget  = nil
+local aimActive     = false
+local uiVisible     = true
+local mouseUnlocked = false
 
 local BONE_PAIRS = {
-    {"Head","UpperTorso"},{"Head","Torso"},
+    {"Head","UpperTorso"},  {"Head","Torso"},
     {"UpperTorso","LowerTorso"},
     {"Torso","HumanoidRootPart"},{"UpperTorso","HumanoidRootPart"},
-    {"UpperTorso","LeftUpperArm"},{"LeftUpperArm","LeftLowerArm"},{"LeftLowerArm","LeftHand"},
-    {"UpperTorso","RightUpperArm"},{"RightUpperArm","RightLowerArm"},{"RightLowerArm","RightHand"},
-    {"LowerTorso","LeftUpperLeg"},{"LeftUpperLeg","LeftLowerLeg"},{"LeftLowerLeg","LeftFoot"},
-    {"LowerTorso","RightUpperLeg"},{"RightUpperLeg","RightLowerLeg"},{"RightLowerLeg","RightFoot"},
-    {"Torso","Left Arm"},{"Left Arm","Left Hand"},
-    {"Torso","Right Arm"},{"Right Arm","Right Hand"},
-    {"Torso","Left Leg"},{"Left Leg","Left Foot"},
-    {"Torso","Right Leg"},{"Right Leg","Right Foot"},
+    {"UpperTorso","LeftUpperArm"},  {"LeftUpperArm","LeftLowerArm"},  {"LeftLowerArm","LeftHand"},
+    {"UpperTorso","RightUpperArm"}, {"RightUpperArm","RightLowerArm"},{"RightLowerArm","RightHand"},
+    {"LowerTorso","LeftUpperLeg"},  {"LeftUpperLeg","LeftLowerLeg"},  {"LeftLowerLeg","LeftFoot"},
+    {"LowerTorso","RightUpperLeg"}, {"RightUpperLeg","RightLowerLeg"},{"RightLowerLeg","RightFoot"},
+    {"Torso","Left Arm"},  {"Left Arm","Left Hand"},
+    {"Torso","Right Arm"}, {"Right Arm","Right Hand"},
+    {"Torso","Left Leg"},  {"Left Leg","Left Foot"},
+    {"Torso","Right Leg"}, {"Right Leg","Right Foot"},
 }
 
 -- ══════════════════════════════════════════════
@@ -94,7 +94,7 @@ local function newDraw(t, props)
 end
 
 local fovCircle = newDraw("Circle",{
-    Visible   = false,
+    Visible   = CFG.AIM_FOV_VISIBLE,
     Radius    = CFG.AIM_FOV,
     Color     = CFG.AIM_FOV_COLOR,
     Thickness = 1,
@@ -108,19 +108,18 @@ local fovCircle = newDraw("Circle",{
 local function getChar(plr) return plr and plr.Character end
 
 local function getRootAndHuman(plr)
-    local c = getChar(plr)
-    if not c then return nil,nil end
+    local c = getChar(plr); if not c then return nil,nil end
     return c:FindFirstChild("HumanoidRootPart"), c:FindFirstChildOfClass("Humanoid")
 end
 
 local function isTeammate(plr)
     if not CFG.AIM_TEAM_CHECK then return false end
-    return plr.Team ~= nil and LocalPlayer.Team ~= nil and plr.Team == LocalPlayer.Team
+    return plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team
 end
 
 local function worldToScreen(pos)
-    local sp, on = Camera:WorldToViewportPoint(pos)
-    return Vector2.new(sp.X, sp.Y), on, sp.Z
+    local sp,on = Camera:WorldToViewportPoint(pos)
+    return Vector2.new(sp.X,sp.Y), on, sp.Z
 end
 
 local function getTargetBone(char)
@@ -143,107 +142,22 @@ local function isVisible(char, bonePos)
     return char:IsAncestorOf(hit) or hit:IsDescendantOf(char)
 end
 
-local function getPlayerOnVehicle(plr)
+local function getPlayerRootPos(plr)
     local char = getChar(plr)
-    if not char then return false end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if not hum then return false end
-    if hum.SeatPart ~= nil then return true end
-    for _,v in ipairs(char:GetDescendants()) do
-        if v:IsA("Weld") or v:IsA("WeldConstraint") then
-            if v.Part0 and v.Part0:IsA("VehicleSeat") then return true end
-            if v.Part1 and v.Part1:IsA("VehicleSeat") then return true end
-        end
-    end
-    return false
+    if not char then return nil end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+    return root.Position
 end
 
 -- ══════════════════════════════════════════════
---  AIMBOT CORE
--- ══════════════════════════════════════════════
-local function isValidTarget(plr)
-    if plr == LocalPlayer then return false end
-    if isTeammate(plr) then return false end
-    local char = getChar(plr)
-    local root, human = getRootAndHuman(plr)
-    if not char or not root or not human then return false end
-    if human.Health <= 0 then return false end
-    if CFG.AIM_VEHICLE == false and getPlayerOnVehicle(plr) then return false end
-    local bone = getTargetBone(char)
-    if not bone then return false end
-    local bonePos = bone.CFrame.Position + CFG.AIM_HEAD_OFFSET
-    local screen2d, onScreen = worldToScreen(bonePos)
-    if not onScreen then return false end
-    local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-    if (screen2d - center).Magnitude > CFG.AIM_FOV then return false end
-    if CFG.AIM_VISIBLE_CHECK and not isVisible(char, bonePos) then return false end
-    return true
-end
-
-local function getBestTarget()
-    local center   = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-    local bestDist = CFG.AIM_FOV
-    local bestPlr  = nil
-    for _,plr in ipairs(Players:GetPlayers()) do
-        if not isValidTarget(plr) then continue end
-        local char = getChar(plr)
-        local bone = getTargetBone(char)
-        local bonePos = bone.CFrame.Position + CFG.AIM_HEAD_OFFSET
-        local screen2d = worldToScreen(bonePos)
-        local d = (screen2d - center).Magnitude
-        if d < bestDist then bestDist=d bestPlr=plr end
-    end
-    return bestPlr
-end
-
-local function doAimbot()
-    if not CFG.AIM_ENABLED or not aimActive or mouseUnlocked then
-        lockedTarget = nil return
-    end
-    if lockedTarget then
-        local char  = getChar(lockedTarget)
-        local _,human = getRootAndHuman(lockedTarget)
-        if not human or human.Health <= 0 then
-            lockedTarget = nil
-        elseif CFG.AIM_VISIBLE_CHECK and char then
-            local bone = getTargetBone(char)
-            if bone and not isVisible(char, bone.CFrame.Position + CFG.AIM_HEAD_OFFSET) then
-                lockedTarget = nil
-            end
-        end
-        if lockedTarget and CFG.AIM_VEHICLE == false and getPlayerOnVehicle(lockedTarget) then
-            lockedTarget = nil
-        end
-    end
-    if not lockedTarget then lockedTarget = getBestTarget() end
-    if not lockedTarget then return end
-
-    local char = getChar(lockedTarget)
-    local bone = char and getTargetBone(char)
-    if not bone then lockedTarget = nil return end
-
-    local bonePos           = bone.CFrame.Position + CFG.AIM_HEAD_OFFSET
-    local screen2d, onScreen = worldToScreen(bonePos)
-    if not onScreen then lockedTarget = nil return end
-
-    local vp     = Camera.ViewportSize
-    local center = Vector2.new(vp.X/2, vp.Y/2)
-    local delta  = screen2d - center
-
-    if delta.Magnitude > CFG.AIM_FOV then lockedTarget = nil return end
-
-    local step = math.clamp(CFG.AIM_SMOOTH, 0.01, 1.0)
-    mousemoverel(delta.X * step, delta.Y * step)
-end
-
--- ══════════════════════════════════════════════
---  ESP + SKELETON
+--  ESP + SKELETON BUILDER
 -- ══════════════════════════════════════════════
 local function buildESP(plr)
     if espObjects[plr] then return end
     espObjects[plr] = {
-        box    = newDraw("Square",{Visible=false,Color=CFG.ESP_COLOR,Thickness=CFG.ESP_THICKNESS,Filled=false}),
-        name   = newDraw("Text",  {Visible=false,Color=CFG.ESP_COLOR,Size=13,Center=true,Outline=true}),
+        box    = newDraw("Square",{Visible=false,Color=CFG.ESP_COLOR,  Thickness=CFG.ESP_THICKNESS,Filled=false}),
+        name   = newDraw("Text",  {Visible=false,Color=CFG.ESP_COLOR,  Size=13,Center=true,Outline=true}),
         health = newDraw("Text",  {Visible=false,Color=Color3.fromRGB(80,255,120),Size=12,Center=true,Outline=true}),
         dist   = newDraw("Text",  {Visible=false,Color=Color3.fromRGB(180,180,220),Size=11,Center=true,Outline=true}),
     }
@@ -251,8 +165,8 @@ local function buildESP(plr)
     for _,pair in ipairs(BONE_PAIRS) do
         local key = pair[1].."__"..pair[2]
         skelObjects[plr][key] = newDraw("Line",{
-            Visible=false,Color=CFG.SKE_COLOR,Thickness=CFG.SKE_THICKNESS,
-            From=Vector2.new(0,0),To=Vector2.new(0,0),
+            Visible=false, Color=CFG.SKE_COLOR, Thickness=CFG.SKE_THICKNESS,
+            From=Vector2.new(0,0), To=Vector2.new(0,0),
         })
     end
 end
@@ -280,7 +194,7 @@ local function updateESP(plr)
     end
 
     local char = getChar(plr)
-    local root, human = getRootAndHuman(plr)
+    local root,human = getRootAndHuman(plr)
     if not char or not root or not human or human.Health <= 0 then
         for _,d in pairs(esp) do d.Visible=false end
         if ske then for _,d in pairs(ske) do d.Visible=false end end
@@ -288,8 +202,8 @@ local function updateESP(plr)
     end
 
     local hrpPos = root.Position
-    local top2d, onTop = worldToScreen(hrpPos + Vector3.new(0,3.2,0))
-    local bot2d, onBot = worldToScreen(hrpPos - Vector3.new(0,3.2,0))
+    local top2d,onTop = worldToScreen(hrpPos + Vector3.new(0,3.2,0))
+    local bot2d,onBot = worldToScreen(hrpPos - Vector3.new(0,3.2,0))
 
     if not onTop and not onBot then
         for _,d in pairs(esp) do d.Visible=false end
@@ -342,126 +256,183 @@ local function updateESP(plr)
 end
 
 -- ══════════════════════════════════════════════
---  UI SETUP
+--  UI  — STEPTHEP  (Sakura-Hub style sidebar)
 -- ══════════════════════════════════════════════
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name           = "STEPTHEP_UI"
-ScreenGui.ResetOnSpawn   = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.IgnoreGuiInset = true
--- FIX: gethui() บน executor บางตัว return nil หรือ error silently
--- ใช้ pcall กับ CoreGui ตรงๆ แทน
-local ok, cg = pcall(function() return game:GetService("CoreGui") end)
-if ok and cg then
-    local s, e = pcall(function() ScreenGui.Parent = cg end)
-    if not s then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+ScreenGui.Name            = "STEPTHEP_UI"
+ScreenGui.ResetOnSpawn    = false
+ScreenGui.ZIndexBehavior  = Enum.ZIndexBehavior.Sibling
+ScreenGui.IgnoreGuiInset  = true
+if gethui then ScreenGui.Parent = gethui()
 else
-    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    local ok,cg = pcall(function() return game:GetService("CoreGui") end)
+    ScreenGui.Parent = ok and cg or LocalPlayer:WaitForChild("PlayerGui")
 end
 
 local T = {
-    BG       = Color3.fromRGB(28,28,36),
-    SIDEBAR  = Color3.fromRGB(22,22,30),
-    PANEL    = Color3.fromRGB(32,32,42),
-    HEADER   = Color3.fromRGB(38,38,50),
-    ACCENT   = Color3.fromRGB(255,140,50),
-    TAB_SEL  = Color3.fromRGB(44,44,58),
-    ROW_A    = Color3.fromRGB(36,36,46),
-    ROW_B    = Color3.fromRGB(30,30,40),
-    SEC      = Color3.fromRGB(50,50,65),
-    TXT_ON   = Color3.fromRGB(230,230,240),
-    TXT_DIM  = Color3.fromRGB(100,100,120),
-    TXT_ACC  = Color3.fromRGB(255,160,80),
-    CLOSE    = Color3.fromRGB(180,50,50),
-    MIN_BTN  = Color3.fromRGB(90,90,110),
-    LINE     = Color3.fromRGB(55,55,70),
-    PILL_OFF = Color3.fromRGB(55,55,70),
+    BG         = Color3.fromRGB(28,28,36),
+    SIDEBAR    = Color3.fromRGB(22,22,30),
+    PANEL      = Color3.fromRGB(32,32,42),
+    HEADER     = Color3.fromRGB(38,38,50),
+    ACCENT     = Color3.fromRGB(255,140,50),
+    TAB_SEL    = Color3.fromRGB(44,44,58),
+    ROW_A      = Color3.fromRGB(36,36,46),
+    ROW_B      = Color3.fromRGB(30,30,40),
+    SEC        = Color3.fromRGB(50,50,65),
+    TXT_ON     = Color3.fromRGB(230,230,240),
+    TXT_DIM    = Color3.fromRGB(100,100,120),
+    TXT_ACC    = Color3.fromRGB(255,160,80),
+    CLOSE      = Color3.fromRGB(180,50,50),
+    MIN_BTN    = Color3.fromRGB(90,90,110),
+    LINE       = Color3.fromRGB(55,55,70),
+    PILL_OFF   = Color3.fromRGB(55,55,70),
 }
 
-local WIN_W  = 420
-local WIN_H  = 310
-local SIDE_W = 108
-local HDR_H  = 42
+local WIN_W    = 420
+local WIN_H    = 310
+local SIDE_W   = 108
+local HDR_H    = 42
 
 local Win = Instance.new("Frame")
-Win.Name             = "Win"
-Win.Size             = UDim2.new(0,WIN_W,0,WIN_H)
-Win.Position         = UDim2.new(0.5,-WIN_W/2,0.5,-WIN_H/2)
-Win.BackgroundColor3 = T.BG
-Win.BorderSizePixel  = 0
-Win.ClipsDescendants = true
-Win.ZIndex           = 10
-Win.Parent           = ScreenGui
+Win.Name               = "Win"
+Win.Size               = UDim2.new(0,WIN_W,0,WIN_H)
+Win.Position           = UDim2.new(0.5,-WIN_W/2,0.5,-WIN_H/2)
+Win.BackgroundColor3   = T.BG
+Win.BorderSizePixel    = 0
+Win.ClipsDescendants   = true
+Win.ZIndex             = 10
+Win.Parent             = ScreenGui
 Instance.new("UICorner",Win).CornerRadius = UDim.new(0,8)
 
 local WinStroke = Instance.new("UIStroke")
-WinStroke.Color        = Color3.fromRGB(0,0,0)
-WinStroke.Thickness    = 2
-WinStroke.Transparency = 0.5
-WinStroke.Parent       = Win
+WinStroke.Color       = Color3.fromRGB(0,0,0)
+WinStroke.Thickness   = 2
+WinStroke.Transparency= 0.5
+WinStroke.Parent      = Win
 
 local Header = Instance.new("Frame")
-Header.Name             = "Header"
-Header.Size             = UDim2.new(1,0,0,HDR_H)
-Header.BackgroundColor3 = T.HEADER
-Header.BorderSizePixel  = 0
-Header.ZIndex           = 11
-Header.Parent           = Win
+Header.Name            = "Header"
+Header.Size            = UDim2.new(1,0,0,HDR_H)
+Header.BackgroundColor3= T.HEADER
+Header.BorderSizePixel = 0
+Header.ZIndex          = 11
+Header.Parent          = Win
 
 local HIcon = Instance.new("TextLabel")
-HIcon.Text="🌸" HIcon.Size=UDim2.new(0,28,1,0) HIcon.Position=UDim2.new(0,8,0,0)
-HIcon.BackgroundTransparency=1 HIcon.TextSize=18 HIcon.Font=Enum.Font.GothamBold
-HIcon.TextColor3=T.TXT_ON HIcon.ZIndex=12 HIcon.Parent=Header
+HIcon.Text             = "🌸"
+HIcon.Size             = UDim2.new(0,28,1,0)
+HIcon.Position         = UDim2.new(0,8,0,0)
+HIcon.BackgroundTransparency = 1
+HIcon.TextSize         = 18
+HIcon.Font             = Enum.Font.GothamBold
+HIcon.TextColor3       = T.TXT_ON
+HIcon.ZIndex           = 12
+HIcon.Parent           = Header
 
 local HTitle = Instance.new("TextLabel")
-HTitle.Text="STEPTHEP" HTitle.Size=UDim2.new(0,160,0,20) HTitle.Position=UDim2.new(0,40,0,5)
-HTitle.BackgroundTransparency=1 HTitle.TextColor3=T.TXT_ON HTitle.TextSize=15
-HTitle.Font=Enum.Font.GothamBold HTitle.TextXAlignment=Enum.TextXAlignment.Left
-HTitle.ZIndex=12 HTitle.Parent=Header
+HTitle.Text            = "STEPTHEP"
+HTitle.Size            = UDim2.new(0,160,0,20)
+HTitle.Position        = UDim2.new(0,40,0,5)
+HTitle.BackgroundTransparency = 1
+HTitle.TextColor3      = T.TXT_ON
+HTitle.TextSize        = 15
+HTitle.Font            = Enum.Font.GothamBold
+HTitle.TextXAlignment  = Enum.TextXAlignment.Left
+HTitle.ZIndex          = 12
+HTitle.Parent          = Header
 
 local HSub = Instance.new("TextLabel")
-HSub.Text="Urban Reload v1.1" HSub.Size=UDim2.new(0,160,0,13) HSub.Position=UDim2.new(0,40,0,24)
-HSub.BackgroundTransparency=1 HSub.TextColor3=T.TXT_DIM HSub.TextSize=10
-HSub.Font=Enum.Font.Gotham HSub.TextXAlignment=Enum.TextXAlignment.Left
-HSub.ZIndex=12 HSub.Parent=Header
+HSub.Text              = "Urban Reload v1.1"
+HSub.Size              = UDim2.new(0,160,0,13)
+HSub.Position          = UDim2.new(0,40,0,24)
+HSub.BackgroundTransparency = 1
+HSub.TextColor3        = T.TXT_DIM
+HSub.TextSize          = 10
+HSub.Font              = Enum.Font.Gotham
+HSub.TextXAlignment    = Enum.TextXAlignment.Left
+HSub.ZIndex            = 12
+HSub.Parent            = Header
 
 local MinBtn = Instance.new("TextButton")
-MinBtn.Text="─" MinBtn.Size=UDim2.new(0,24,0,22) MinBtn.Position=UDim2.new(1,-54,0.5,-11)
-MinBtn.BackgroundColor3=T.MIN_BTN MinBtn.TextColor3=T.TXT_ON MinBtn.TextSize=12
-MinBtn.Font=Enum.Font.GothamBold MinBtn.BorderSizePixel=0 MinBtn.ZIndex=13 MinBtn.Parent=Header
-Instance.new("UICorner",MinBtn).CornerRadius=UDim.new(0,4)
+MinBtn.Text            = "─"
+MinBtn.Size            = UDim2.new(0,24,0,22)
+MinBtn.Position        = UDim2.new(1,-54,0.5,-11)
+MinBtn.BackgroundColor3= T.MIN_BTN
+MinBtn.TextColor3      = T.TXT_ON
+MinBtn.TextSize        = 12
+MinBtn.Font            = Enum.Font.GothamBold
+MinBtn.BorderSizePixel = 0
+MinBtn.ZIndex          = 13
+MinBtn.Parent          = Header
+Instance.new("UICorner",MinBtn).CornerRadius = UDim.new(0,4)
 
 local CloseBtn = Instance.new("TextButton")
-CloseBtn.Text="×" CloseBtn.Size=UDim2.new(0,24,0,22) CloseBtn.Position=UDim2.new(1,-27,0.5,-11)
-CloseBtn.BackgroundColor3=T.CLOSE CloseBtn.TextColor3=Color3.new(1,1,1) CloseBtn.TextSize=16
-CloseBtn.Font=Enum.Font.GothamBold CloseBtn.BorderSizePixel=0 CloseBtn.ZIndex=13 CloseBtn.Parent=Header
-Instance.new("UICorner",CloseBtn).CornerRadius=UDim.new(0,4)
+CloseBtn.Text          = "×"
+CloseBtn.Size          = UDim2.new(0,24,0,22)
+CloseBtn.Position      = UDim2.new(1,-27,0.5,-11)
+CloseBtn.BackgroundColor3 = T.CLOSE
+CloseBtn.TextColor3    = Color3.new(1,1,1)
+CloseBtn.TextSize      = 16
+CloseBtn.Font          = Enum.Font.GothamBold
+CloseBtn.BorderSizePixel=0
+CloseBtn.ZIndex        = 13
+CloseBtn.Parent        = Header
+Instance.new("UICorner",CloseBtn).CornerRadius = UDim.new(0,4)
 
 local HDivider = Instance.new("Frame")
-HDivider.Size=UDim2.new(1,0,0,1) HDivider.Position=UDim2.new(0,0,0,HDR_H)
-HDivider.BackgroundColor3=T.LINE HDivider.BorderSizePixel=0 HDivider.ZIndex=11 HDivider.Parent=Win
+HDivider.Size          = UDim2.new(1,0,0,1)
+HDivider.Position      = UDim2.new(0,0,0,HDR_H)
+HDivider.BackgroundColor3 = T.LINE
+HDivider.BorderSizePixel  = 0
+HDivider.ZIndex        = 11
+HDivider.Parent        = Win
 
 local Sidebar = Instance.new("Frame")
-Sidebar.Name="Sidebar" Sidebar.Size=UDim2.new(0,SIDE_W,1,-HDR_H-1)
-Sidebar.Position=UDim2.new(0,0,0,HDR_H+1) Sidebar.BackgroundColor3=T.SIDEBAR
-Sidebar.BorderSizePixel=0 Sidebar.ZIndex=11 Sidebar.Parent=Win
-local SL=Instance.new("UIListLayout") SL.SortOrder=Enum.SortOrder.LayoutOrder
-SL.Padding=UDim.new(0,0) SL.Parent=Sidebar
+Sidebar.Name           = "Sidebar"
+Sidebar.Size           = UDim2.new(0,SIDE_W,1,-HDR_H-1)
+Sidebar.Position       = UDim2.new(0,0,0,HDR_H+1)
+Sidebar.BackgroundColor3 = T.SIDEBAR
+Sidebar.BorderSizePixel  = 0
+Sidebar.ZIndex         = 11
+Sidebar.Parent         = Win
+
+local SideLayout = Instance.new("UIListLayout")
+SideLayout.SortOrder   = Enum.SortOrder.LayoutOrder
+SideLayout.Padding     = UDim.new(0,0)
+SideLayout.Parent      = Sidebar
 
 local VDiv = Instance.new("Frame")
-VDiv.Size=UDim2.new(0,1,1,-HDR_H-1) VDiv.Position=UDim2.new(0,SIDE_W,0,HDR_H+1)
-VDiv.BackgroundColor3=T.LINE VDiv.BorderSizePixel=0 VDiv.ZIndex=11 VDiv.Parent=Win
+VDiv.Size              = UDim2.new(0,1,1,-HDR_H-1)
+VDiv.Position          = UDim2.new(0,SIDE_W,0,HDR_H+1)
+VDiv.BackgroundColor3  = T.LINE
+VDiv.BorderSizePixel   = 0
+VDiv.ZIndex            = 11
+VDiv.Parent            = Win
 
 local Panel = Instance.new("ScrollingFrame")
-Panel.Name="Panel" Panel.Size=UDim2.new(1,-SIDE_W-1,1,-HDR_H-1)
-Panel.Position=UDim2.new(0,SIDE_W+1,0,HDR_H+1) Panel.BackgroundColor3=T.PANEL
-Panel.BorderSizePixel=0 Panel.ScrollBarThickness=3 Panel.ScrollBarImageColor3=T.ACCENT
-Panel.CanvasSize=UDim2.new(0,0,0,0) Panel.AutomaticCanvasSize=Enum.AutomaticSize.Y
-Panel.ZIndex=11 Panel.Parent=Win
-local PL=Instance.new("UIListLayout") PL.SortOrder=Enum.SortOrder.LayoutOrder
-PL.Padding=UDim.new(0,0) PL.Parent=Panel
-local PP=Instance.new("UIPadding") PP.PaddingLeft=UDim.new(0,8) PP.PaddingRight=UDim.new(0,8)
-PP.PaddingTop=UDim.new(0,6) PP.PaddingBottom=UDim.new(0,8) PP.Parent=Panel
+Panel.Name             = "Panel"
+Panel.Size             = UDim2.new(1,-SIDE_W-1,1,-HDR_H-1)
+Panel.Position         = UDim2.new(0,SIDE_W+1,0,HDR_H+1)
+Panel.BackgroundColor3 = T.PANEL
+Panel.BorderSizePixel  = 0
+Panel.ScrollBarThickness = 3
+Panel.ScrollBarImageColor3 = T.ACCENT
+Panel.CanvasSize       = UDim2.new(0,0,0,0)
+Panel.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Panel.ZIndex           = 11
+Panel.Parent           = Win
+
+local PanelLayout = Instance.new("UIListLayout")
+PanelLayout.SortOrder  = Enum.SortOrder.LayoutOrder
+PanelLayout.Padding    = UDim.new(0,0)
+PanelLayout.Parent     = Panel
+
+local PanelPad = Instance.new("UIPadding")
+PanelPad.PaddingLeft   = UDim.new(0,8)
+PanelPad.PaddingRight  = UDim.new(0,8)
+PanelPad.PaddingTop    = UDim.new(0,6)
+PanelPad.PaddingBottom = UDim.new(0,8)
+PanelPad.Parent        = Panel
 
 -- ══════════════════════════════════════════════
 --  TAB SYSTEM
@@ -484,7 +455,7 @@ local function setTab(id)
     for _,children in pairs(tabContents) do
         for _,w in ipairs(children) do w.Visible = false end
     end
-    for _,btn in pairs(tabButtons) do
+    for tid,btn in pairs(tabButtons) do
         btn.BackgroundColor3       = T.SIDEBAR
         btn.BackgroundTransparency = 1
         btn.TextColor3             = T.TXT_DIM
@@ -543,7 +514,9 @@ for order,tab in ipairs(TABS) do
         end
     end)
     btn.MouseLeave:Connect(function()
-        if activeTab ~= tab.id then btn.BackgroundTransparency = 1 end
+        if activeTab ~= tab.id then
+            btn.BackgroundTransparency = 1
+        end
     end)
 end
 
@@ -551,14 +524,11 @@ end
 --  WIDGET BUILDERS
 -- ══════════════════════════════════════════════
 local wOrder = 0
-
 local function regWidget(tabId, w)
     table.insert(tabContents[tabId], w)
     w.Visible = false
 end
 
--- FIX: secHeader เดิม corrupted ("lor3..." แทน function body)
--- เขียนใหม่สมบูรณ์
 local function secHeader(tabId, text)
     wOrder += 1
     local f = Instance.new("Frame")
@@ -586,7 +556,7 @@ end
 local function makeToggle(tabId, label, desc, initVal, callback)
     wOrder += 1
     local row = Instance.new("Frame")
-    row.Size             = UDim2.new(1,0,0, (desc ~= "") and 42 or 36)
+    row.Size             = UDim2.new(1,0,0, desc ~= "" and 42 or 36)
     row.BackgroundColor3 = T.ROW_A
     row.BorderSizePixel  = 0
     row.LayoutOrder      = wOrder
@@ -857,11 +827,10 @@ MinBtn.MouseButton1Click:Connect(function()
     Sidebar.Visible = not collapse
     VDiv.Visible    = not collapse
     Win.Size = collapse
-        and UDim2.new(0,WIN_W,0,WIN_H)
-        or  UDim2.new(0,WIN_W,0,HDR_H+2)
+        and UDim2.new(0,WIN_W,0,HDR_H+2)
+        or  UDim2.new(0,WIN_W,0,WIN_H)
 end)
 
--- FIX: setTab("ESP") ต้องเรียกหลัง populate ครบ
 setTab("ESP")
 
 -- ══════════════════════════════════════════════
@@ -891,6 +860,101 @@ do
 end
 
 -- ══════════════════════════════════════════════
+--  AIMBOT — vehicle-aware, smooth, mousemoverel-only
+-- ══════════════════════════════════════════════
+local function getBoneWorldPos(char,boneName)
+    local b = char:FindFirstChild(boneName)
+    if b then return b.Position end
+    return nil
+end
+
+local function getPlayerOnVehicle(plr)
+    local char = getChar(plr)
+    if not char then return false end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return false end
+    -- SeatPart set → sitting; also check VehicleSeat via character seat weld
+    if hum.SeatPart ~= nil then return true end
+    -- fallback: check for VehicleSeat ancestor on any seat weld
+    for _,v in ipairs(char:GetDescendants()) do
+        if v:IsA("Weld") or v:IsA("WeldConstraint") then
+            local p0 = v:IsA("Weld") and v.Part0 or v.Part0
+            local p1 = v:IsA("Weld") and v.Part1 or v.Part1
+            if p0 and p0:IsA("VehicleSeat") then return true end
+            if p1 and p1:IsA("VehicleSeat") then return true end
+        end
+    end
+    return false
+end
+
+local function getBestTarget()
+    local center   = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    local bestDist = CFG.AIM_FOV
+    local bestPlr  = nil
+    for _,plr in ipairs(Players:GetPlayers()) do
+        if plr == LocalPlayer then continue end
+        if isTeammate(plr) then continue end
+        local char  = getChar(plr)
+        local root,human = getRootAndHuman(plr)
+        if not char or not root or not human or human.Health <= 0 then continue end
+        -- AIM_VEHICLE=true  → lock everyone including vehicle riders  (skip nothing)
+        -- AIM_VEHICLE=false → skip vehicle riders
+        if CFG.AIM_VEHICLE == false and getPlayerOnVehicle(plr) then continue end
+        local bone = getTargetBone(char)
+        if not bone then continue end
+        local bonePos = bone.CFrame.Position + CFG.AIM_HEAD_OFFSET
+        local screen2d,onScreen = worldToScreen(bonePos)
+        if not onScreen then continue end
+        if CFG.AIM_VISIBLE_CHECK and not isVisible(char,bonePos) then continue end
+        local d = (screen2d - center).Magnitude
+        if d < bestDist then bestDist=d bestPlr=plr end
+    end
+    return bestPlr
+end
+
+local function doAimbot()
+    if not CFG.AIM_ENABLED or not aimActive or mouseUnlocked then
+        lockedTarget = nil return
+    end
+
+    if lockedTarget then
+        local char  = getChar(lockedTarget)
+        local _,human = getRootAndHuman(lockedTarget)
+        if not human or human.Health <= 0 then
+            lockedTarget = nil
+        elseif CFG.AIM_VISIBLE_CHECK and char then
+            local bone = getTargetBone(char)
+            if bone and not isVisible(char, bone.CFrame.Position + CFG.AIM_HEAD_OFFSET) then
+                lockedTarget = nil
+            end
+        end
+        if lockedTarget and CFG.AIM_VEHICLE == false and getPlayerOnVehicle(lockedTarget) then
+            lockedTarget = nil
+        end
+    end
+
+    if not lockedTarget then lockedTarget = getBestTarget() end
+    if not lockedTarget then return end
+
+    local char = getChar(lockedTarget)
+    local bone = char and getTargetBone(char)
+    if not bone then lockedTarget = nil return end
+
+    local bonePos        = bone.CFrame.Position + CFG.AIM_HEAD_OFFSET
+    local screen2d,onScreen = worldToScreen(bonePos)
+    if not onScreen then lockedTarget = nil return end
+
+    local vp     = Camera.ViewportSize
+    local center = Vector2.new(vp.X/2, vp.Y/2)
+    local delta  = screen2d - center
+
+    if delta.Magnitude > CFG.AIM_FOV then lockedTarget = nil return end
+
+    local step = math.clamp(CFG.AIM_SMOOTH, 0.01, 1.0)
+    mousemoverel(delta.X * step, delta.Y * step)
+end
+
+-- ══════════════════════════════════════════════
 --  PLAYER HOOKS
 -- ══════════════════════════════════════════════
 local function onPlayerAdded(plr)
@@ -913,18 +977,21 @@ Players.PlayerRemoving:Connect(removeESP)
 -- ══════════════════════════════════════════════
 --  INPUT
 -- ══════════════════════════════════════════════
-UserInputSvc.InputBegan:Connect(function(input, gpe)
+UserInputSvc.InputBegan:Connect(function(input,gpe)
     if input.KeyCode == CFG.KEY_UI_TOGGLE then
-        setUIVisible(not uiVisible)
-        return
+        setUIVisible(not uiVisible) return
     end
     if input.KeyCode == CFG.KEY_MOUSE_TOGGLE then
-        if mouseUnlocked then
-            lockMouse()
-            fovCircle.Visible = CFG.AIM_FOV_VISIBLE and CFG.AIM_ENABLED
-        else
-            unlockMouse()
-            fovCircle.Visible = false
+        if uiVisible then
+            if mouseUnlocked then
+                lockMouse()
+                -- restore FOV circle when mouse re-locks
+                fovCircle.Visible = CFG.AIM_FOV_VISIBLE and CFG.AIM_ENABLED
+            else
+                unlockMouse()
+                -- hide FOV circle while mouse is free
+                fovCircle.Visible = false
+            end
         end
         return
     end
@@ -950,8 +1017,7 @@ end)
 
 UserInputSvc.InputEnded:Connect(function(input)
     if input.KeyCode == CFG.KEY_LOCK then
-        aimActive    = false
-        lockedTarget = nil
+        aimActive = false lockedTarget = nil
     end
 end)
 
@@ -961,9 +1027,10 @@ end)
 RunService.RenderStepped:Connect(function()
     doAimbot()
     fovCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    -- main loop never overrides ALT-hide state — only sync radius
     for _,plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer then updateESP(plr) end
     end
 end)
 
-print("[ STEPTHEP v1.1 ] loaded — INSERT=menu | ALT=mouse | E=lock")
+print("[ STEPTHEP v1.1 ] loaded — INSERT/X=menu | ALT=mouse+FOV | E=lock")
