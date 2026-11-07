@@ -27,6 +27,7 @@ local CFG = {
     AIM_VISIBLE_CHECK = true,
     AIM_VEHICLE       = true,
     AIM_HEAD_OFFSET   = Vector3.new(0, 0, 0),
+    AIM_SMOOTH        = 0.25,   -- 0.01 (butter) → 1.0 (snap)
     KEY_LOCK         = Enum.KeyCode.E,
     KEY_ESP_TOGGLE   = Enum.KeyCode.X,
     KEY_FOV_UP       = Enum.KeyCode.RightBracket,
@@ -150,7 +151,7 @@ local function getPlayerRootPos(plr)
 end
 
 -- ══════════════════════════════════════════════
---  ESP + SKELETON BUILDER  ← ย้ายขึ้นก่อน onPlayerAdded
+--  ESP + SKELETON BUILDER
 -- ══════════════════════════════════════════════
 local function buildESP(plr)
     if espObjects[plr] then return end
@@ -455,16 +456,14 @@ local TABS = {
 
 local activeTab   = nil
 local tabButtons  = {}
-local tabContents = {}   -- [id] = {widget, widget, ...}
+local tabContents = {}
 
 local function setTab(id)
-    -- hide all panel widgets
     for _,children in pairs(tabContents) do
         for _,w in ipairs(children) do
             w.Visible = false
         end
     end
-    -- reset all tab buttons
     for tid,btn in pairs(tabButtons) do
         btn.BackgroundColor3   = T.SIDEBAR
         btn.BackgroundTransparency = 1
@@ -472,7 +471,6 @@ local function setTab(id)
         local bar = btn:FindFirstChild("AccBar")
         if bar then bar.BackgroundTransparency = 1 end
     end
-    -- show active
     if tabContents[id] then
         for _,w in ipairs(tabContents[id]) do
             w.Visible = true
@@ -567,7 +565,6 @@ local function secHeader(tabId, text)
     return f
 end
 
--- ── Toggle (fix: no Color3 arithmetic on hover)
 local function makeToggle(tabId, label, desc, initVal, callback)
     wOrder += 1
     local row = Instance.new("Frame")
@@ -578,7 +575,6 @@ local function makeToggle(tabId, label, desc, initVal, callback)
     row.ZIndex             = 12
     row.Parent             = Panel
 
-    -- left accent strip
     local strip = Instance.new("Frame")
     strip.Size             = UDim2.new(0,2,1,0)
     strip.BackgroundColor3 = initVal and T.ACCENT or T.TXT_DIM
@@ -652,7 +648,6 @@ local function makeToggle(tabId, label, desc, initVal, callback)
     hitbox.Parent          = row
     hitbox.MouseButton1Click:Connect(function() setState(not state) end)
 
-    -- hover: safe, no Color3 arithmetic
     hitbox.MouseEnter:Connect(function()
         TweenSvc:Create(row,TweenInfo.new(0.1),{
             BackgroundColor3 = T.SEC
@@ -668,7 +663,6 @@ local function makeToggle(tabId, label, desc, initVal, callback)
     return row, setState
 end
 
--- ── Slider
 local function makeSlider(tabId, label, minV, maxV, initVal, fmtFn, callback)
     wOrder += 1
     local row = Instance.new("Frame")
@@ -751,7 +745,6 @@ local function makeSlider(tabId, label, minV, maxV, initVal, fmtFn, callback)
     return row, setValue
 end
 
--- ── Key-info row
 local function makeKeyRow(tabId, action, key, alt)
     wOrder += 1
     local row = Instance.new("Frame")
@@ -814,6 +807,11 @@ makeSlider("Aimbot","FOV",20,500,CFG.AIM_FOV,function(v) return v.." px" end,fun
     CFG.AIM_FOV=v
     fovCircle.Radius=v
 end)
+secHeader("Aimbot","SMOOTH")
+makeSlider("Aimbot","Smooth",1,100,math.floor(CFG.AIM_SMOOTH*100),
+    function(v) return v.."%" end,
+    function(v) CFG.AIM_SMOOTH = v/100 end
+)
 
 -- Keys tab
 secHeader("Keys","KEYBINDS")
@@ -839,7 +837,7 @@ for _,tid in ipairs({"Visuals","Fun","Emotes","Sound"}) do
 end
 
 -- ══════════════════════════════════════════════
---  UI SHOW/HIDE  ← declare ก่อน connect ทุกอย่าง
+--  UI SHOW/HIDE
 -- ══════════════════════════════════════════════
 local function setUIVisible(v)
     uiVisible   = v
@@ -850,7 +848,7 @@ end
 CloseBtn.MouseButton1Click:Connect(function() setUIVisible(false) end)
 
 MinBtn.MouseButton1Click:Connect(function()
-    local collapse = Panel.Visible   -- true = กำลัง expand → ต้อง collapse
+    local collapse = Panel.Visible
     Panel.Visible   = not collapse
     Sidebar.Visible = not collapse
     VDiv.Visible    = not collapse
@@ -861,7 +859,6 @@ MinBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- open on ESP tab default
 setTab("ESP")
 
 -- ══════════════════════════════════════════════
@@ -893,7 +890,7 @@ do
 end
 
 -- ══════════════════════════════════════════════
---  AIMBOT  — vehicle-aware
+--  AIMBOT  — smooth, mousemoverel-only (fixed)
 -- ══════════════════════════════════════════════
 local function getBoneWorldPos(char,boneName)
     local b = char:FindFirstChild(boneName)
@@ -936,6 +933,8 @@ local function doAimbot()
     if not CFG.AIM_ENABLED or not aimActive or mouseUnlocked then
         lockedTarget = nil return
     end
+
+    -- validate existing lock
     if lockedTarget then
         local char  = getChar(lockedTarget)
         local _,human = getRootAndHuman(lockedTarget)
@@ -951,24 +950,33 @@ local function doAimbot()
             lockedTarget = nil
         end
     end
+
+    -- acquire
     if not lockedTarget then lockedTarget = getBestTarget() end
     if not lockedTarget then return end
+
     local char = getChar(lockedTarget)
     local bone = char and getTargetBone(char)
-    if not bone then lockedTarget=nil return end
-    local bonePos = bone.CFrame.Position + CFG.AIM_HEAD_OFFSET
-    local screen2d,onScreen = worldToScreen(bonePos)
-    if not onScreen then lockedTarget=nil return end
-    local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-    if (screen2d - center).Magnitude > CFG.AIM_FOV then
-        lockedTarget=nil return
+    if not bone then lockedTarget = nil return end
+
+    local bonePos  = bone.CFrame.Position + CFG.AIM_HEAD_OFFSET
+    local screen2d, onScreen = worldToScreen(bonePos)
+    if not onScreen then lockedTarget = nil return end
+
+    local vp     = Camera.ViewportSize
+    local center = Vector2.new(vp.X / 2, vp.Y / 2)
+    local delta  = screen2d - center
+
+    -- bail if outside FOV ring
+    if delta.Magnitude > CFG.AIM_FOV then
+        lockedTarget = nil return
     end
-    Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, bonePos)
-    local sp,on = worldToScreen(bonePos)
-    if on then
-        local vp = Camera.ViewportSize
-        mousemoverel(sp.X - vp.X/2, sp.Y - vp.Y/2)
-    end
+
+    -- smooth lerp: AIM_SMOOTH=1.0 → snap, 0.01 → butter slow
+    local step = math.clamp(CFG.AIM_SMOOTH, 0.01, 1.0)
+    local move = delta * step
+
+    mousemoverel(move.X, move.Y)
 end
 
 -- ══════════════════════════════════════════════
