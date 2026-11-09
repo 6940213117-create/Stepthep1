@@ -652,7 +652,10 @@ startMain = function(authResult)
         Title = "Aimbot Enable",
         Description = "เปิด/ปิดระบบล็อกเป้าหมาย",
         Default = CFG.AIM_ENABLED,
-        Callback = function(v)\n            CFG.AIM_ENABLED = v\n            if not v then aimActive = false; lockedTarget = nil; mobileFireTouch = nil end\n        end
+        Callback = function(v)
+            CFG.AIM_ENABLED = v
+            if not v then aimActive = false; lockedTarget = nil; mobileFireTouch = nil end
+        end
     })
     Tabs.Aimbot:AddToggle("ShowFOV", {
         Title = "Show FOV",
@@ -951,8 +954,8 @@ startMain = function(authResult)
 
             -- Match the large bullet/fire button shown in the supplied mobile HUD.
             -- Normalized center ~= (0.836, 0.666); elliptical hit area scales with screen.
-            local nx = (p.X / vp.X - 0.836) / 0.058
-            local ny = (p.Y / vp.Y - 0.666) / 0.125
+            local nx = (p.X / vp.X - 0.836) / 0.085
+            local ny = (p.Y / vp.Y - 0.666) / 0.160
             local inFireZone = (nx * nx + ny * ny) <= 1
 
             if inFireZone and CFG.AIM_ENABLED then
