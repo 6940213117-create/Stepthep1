@@ -14,6 +14,10 @@ local CFG = {
     ESP_HEALTH        = false,
     ESP_DISTANCE      = false,
     ESP_COLOR         = Color3.fromRGB(80, 160, 255),
+    ESP_NAME_COLOR    = Color3.fromRGB(255, 255, 255),
+    ESP_HEALTH_COLOR  = Color3.fromRGB(80, 255, 120),
+    ESP_DISTANCE_COLOR= Color3.fromRGB(180, 180, 220),
+    ESP_MAX_DISTANCE  = 1500,
     ESP_THICKNESS     = 1.5,
     SKE_ENABLED       = false,
     SKE_COLOR         = Color3.fromRGB(255, 210, 80),
@@ -55,7 +59,6 @@ local lockedTarget  = nil
 local aimActive     = false
 local uiVisible     = true
 local mouseUnlocked = false
-local mobileFireTouch = nil
 
 local BONE_PAIRS = {
     {"Head","UpperTorso"},  {"Head","Torso"},
@@ -158,9 +161,9 @@ local function buildESP(plr)
     if espObjects[plr] then return end
     espObjects[plr] = {
         box    = newDraw("Square",{Visible=false,Color=CFG.ESP_COLOR,  Thickness=CFG.ESP_THICKNESS,Filled=false}),
-        name   = newDraw("Text",  {Visible=false,Color=CFG.ESP_COLOR,  Size=13,Center=true,Outline=true}),
-        health = newDraw("Text",  {Visible=false,Color=Color3.fromRGB(80,255,120),Size=12,Center=true,Outline=true}),
-        dist   = newDraw("Text",  {Visible=false,Color=Color3.fromRGB(180,180,220),Size=11,Center=true,Outline=true}),
+        name   = newDraw("Text",  {Visible=false,Color=CFG.ESP_NAME_COLOR,Size=13,Center=true,Outline=true}),
+        health = newDraw("Text",  {Visible=false,Color=CFG.ESP_HEALTH_COLOR,Size=12,Center=true,Outline=true}),
+        dist   = newDraw("Text",  {Visible=false,Color=CFG.ESP_DISTANCE_COLOR,Size=11,Center=true,Outline=true}),
     }
     skelObjects[plr] = {}
     for _,pair in ipairs(BONE_PAIRS) do
@@ -203,6 +206,19 @@ local function updateESP(plr)
     end
 
     local hrpPos = root.Position
+    local currentDistance = distanceTo(plr)
+    if currentDistance > CFG.ESP_MAX_DISTANCE then
+        for _,d in pairs(esp) do d.Visible=false end
+        if ske then for _,d in pairs(ske) do d.Visible=false end end
+        return
+    end
+
+    esp.box.Color = CFG.ESP_COLOR
+    esp.box.Thickness = CFG.ESP_THICKNESS
+    esp.name.Color = CFG.ESP_NAME_COLOR
+    esp.health.Color = CFG.ESP_HEALTH_COLOR
+    esp.dist.Color = CFG.ESP_DISTANCE_COLOR
+
     local top2d,onTop = worldToScreen(hrpPos + Vector3.new(0,3.2,0))
     local bot2d,onBot = worldToScreen(hrpPos - Vector3.new(0,3.2,0))
 
@@ -233,7 +249,7 @@ local function updateESP(plr)
     end
     esp.dist.Visible = CFG.ESP_DISTANCE
     if CFG.ESP_DISTANCE then
-        esp.dist.Text     = math.floor(distanceTo(plr)).."m"
+        esp.dist.Text     = math.floor(currentDistance).."m"
         esp.dist.Position = Vector2.new(cx, bot2d.Y + 14)
     end
 
@@ -242,6 +258,8 @@ local function updateESP(plr)
             local key  = pair[1].."__"..pair[2]
             local line = ske[key]
             if not line then continue end
+            line.Color = CFG.SKE_COLOR
+            line.Thickness = CFG.SKE_THICKNESS
             if not CFG.SKE_ENABLED then line.Visible=false continue end
             local b0 = char:FindFirstChild(pair[1])
             local b1 = char:FindFirstChild(pair[2])
@@ -450,11 +468,23 @@ local function setUILanguage(language)
     saveUIPrefs()
 end
 
+-- Responsive window sizing for mobile portrait/landscape and desktop.
+local initialCamera = workspace.CurrentCamera
+local initialViewport = initialCamera and initialCamera.ViewportSize or Vector2.new(1280, 720)
+local windowSize
+if initialViewport.X < initialViewport.Y then
+    windowSize = UDim2.fromScale(0.88, 0.68) -- portrait phone
+elseif UserInputSvc.TouchEnabled and not UserInputSvc.KeyboardEnabled then
+    windowSize = UDim2.fromScale(0.70, 0.76) -- landscape phone/tablet
+else
+    windowSize = UDim2.fromOffset(600, 470) -- desktop: keep original size
+end
+
 local LoginWindow = Fluent:CreateWindow({
     Title = "สเต็ปเทพ",
     SubTitle = "License Verification",
-    TabWidth = 145,
-    Size = UDim2.fromOffset(600, 470),
+    TabWidth = 120,
+    Size = windowSize,
     Acrylic = true,
     Theme = UIPrefs.Theme,
     MinimizeKey = Enum.KeyCode.RightControl
@@ -646,16 +676,65 @@ startMain = function(authResult)
         Callback = function(v) CFG.SKE_ENABLED = v end
     })
 
+    addSection(Tabs.ESP, "ESP COLORS")
+    Tabs.ESP:AddColorPicker("BoxColor", {
+        Title = "Box Color",
+        Default = CFG.ESP_COLOR,
+        Callback = function(v) CFG.ESP_COLOR = v end
+    })
+    Tabs.ESP:AddColorPicker("NameColor", {
+        Title = "Player Name Color",
+        Default = CFG.ESP_NAME_COLOR,
+        Callback = function(v) CFG.ESP_NAME_COLOR = v end
+    })
+    Tabs.ESP:AddColorPicker("HealthColor", {
+        Title = "Health Color",
+        Default = CFG.ESP_HEALTH_COLOR,
+        Callback = function(v) CFG.ESP_HEALTH_COLOR = v end
+    })
+    Tabs.ESP:AddColorPicker("DistanceColor", {
+        Title = "Distance Color",
+        Default = CFG.ESP_DISTANCE_COLOR,
+        Callback = function(v) CFG.ESP_DISTANCE_COLOR = v end
+    })
+    Tabs.ESP:AddColorPicker("SkeletonColor", {
+        Title = "Skeleton Color",
+        Default = CFG.SKE_COLOR,
+        Callback = function(v) CFG.SKE_COLOR = v end
+    })
+    Tabs.ESP:AddSlider("ESPMaxDistance", {
+        Title = "ESP Max Distance",
+        Description = "ระยะสูงสุดที่แสดง ESP (studs)",
+        Default = CFG.ESP_MAX_DISTANCE,
+        Min = 100,
+        Max = 5000,
+        Rounding = 0,
+        Callback = function(v) CFG.ESP_MAX_DISTANCE = v end
+    })
+    Tabs.ESP:AddSlider("BoxThickness", {
+        Title = "Box Thickness",
+        Default = CFG.ESP_THICKNESS,
+        Min = 1,
+        Max = 5,
+        Rounding = 1,
+        Callback = function(v) CFG.ESP_THICKNESS = v end
+    })
+    Tabs.ESP:AddSlider("SkeletonThickness", {
+        Title = "Skeleton Thickness",
+        Default = CFG.SKE_THICKNESS,
+        Min = 1,
+        Max = 5,
+        Rounding = 1,
+        Callback = function(v) CFG.SKE_THICKNESS = v end
+    })
+
     -- AIMBOT
     addSection(Tabs.Aimbot, "AIM SETTINGS")
     Tabs.Aimbot:AddToggle("AimbotEnabled", {
         Title = "Aimbot Enable",
         Description = "เปิด/ปิดระบบล็อกเป้าหมาย",
         Default = CFG.AIM_ENABLED,
-        Callback = function(v)
-            CFG.AIM_ENABLED = v
-            if not v then aimActive = false; lockedTarget = nil; mobileFireTouch = nil end
-        end
+        Callback = function(v) CFG.AIM_ENABLED = v end
     })
     Tabs.Aimbot:AddToggle("ShowFOV", {
         Title = "Show FOV",
@@ -790,20 +869,19 @@ startMain = function(authResult)
         end
     end
 
-    -- MOBILE UI TOGGLE: touch button remains available while the Fluent
-    -- window is minimized. This is UI-only and does not change KeyAuth.
+    -- MOBILE UI TOGGLE: tap to show/hide; hold and drag to reposition.
     local mobileToggle = Instance.new("TextButton")
     mobileToggle.Name = "MobileMenuToggle"
     mobileToggle.Parent = Fluent.GUI
-    mobileToggle.AnchorPoint = Vector2.new(1, 0)
-    mobileToggle.Position = UDim2.new(1, -18, 0, 115)
-    mobileToggle.Size = UDim2.fromOffset(54, 54)
+    mobileToggle.AnchorPoint = Vector2.new(0.5, 0.5)
+    mobileToggle.Position = UDim2.new(1, -42, 0.5, 0)
+    mobileToggle.Size = UDim2.fromOffset(48, 48)
     mobileToggle.BackgroundColor3 = Color3.fromRGB(35, 39, 49)
     mobileToggle.BackgroundTransparency = 0.08
     mobileToggle.BorderSizePixel = 0
     mobileToggle.Text = "×"
     mobileToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    mobileToggle.TextSize = 27
+    mobileToggle.TextSize = 25
     mobileToggle.Font = Enum.Font.GothamBold
     mobileToggle.AutoButtonColor = true
     mobileToggle.Active = true
@@ -819,10 +897,82 @@ startMain = function(authResult)
     mobileStroke.Thickness = 1.5
     mobileStroke.Parent = mobileToggle
 
-    mobileToggle.Activated:Connect(function()
-        setUIVisible(not uiVisible)
-        mobileToggle.Text = uiVisible and "×" or "☰"
+    local dragging = false
+    local dragInput = nil
+    local dragStart = nil
+    local buttonStart = nil
+    local moved = false
+    local dragThreshold = 9
+
+    local function clampButtonCenter(x, y)
+        local camera = workspace.CurrentCamera
+        local viewport = camera and camera.ViewportSize or Vector2.new(1280, 720)
+        local halfX = mobileToggle.AbsoluteSize.X / 2
+        local halfY = mobileToggle.AbsoluteSize.Y / 2
+        return Vector2.new(
+            math.clamp(x, halfX, math.max(halfX, viewport.X - halfX)),
+            math.clamp(y, halfY, math.max(halfY, viewport.Y - halfY))
+        )
+    end
+
+    local function moveToggle(input)
+        if not dragging or not dragStart or not buttonStart then return end
+        local delta = input.Position - dragStart
+        if delta.Magnitude > dragThreshold then moved = true end
+        local center = clampButtonCenter(buttonStart.X + delta.X, buttonStart.Y + delta.Y)
+        mobileToggle.Position = UDim2.fromOffset(center.X, center.Y)
+    end
+
+    mobileToggle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch
+            or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            moved = false
+            dragInput = input
+            dragStart = input.Position
+            buttonStart = mobileToggle.AbsolutePosition + (mobileToggle.AbsoluteSize / 2)
+        end
     end)
+
+    UserInputSvc.InputChanged:Connect(function(input)
+        if not dragging or not dragInput then return end
+        if dragInput.UserInputType == Enum.UserInputType.Touch then
+            if input.UserInputType == Enum.UserInputType.Touch then moveToggle(input) end
+        elseif dragInput.UserInputType == Enum.UserInputType.MouseButton1
+            and input.UserInputType == Enum.UserInputType.MouseMovement then
+            moveToggle(input)
+        end
+    end)
+
+    UserInputSvc.InputEnded:Connect(function(input)
+        if not dragging or not dragInput then return end
+        local endedTouch = dragInput.UserInputType == Enum.UserInputType.Touch
+            and input == dragInput
+        local endedMouse = dragInput.UserInputType == Enum.UserInputType.MouseButton1
+            and input.UserInputType == Enum.UserInputType.MouseButton1
+        if endedTouch or endedMouse then
+            dragging = false
+            dragInput = nil
+            if not moved then
+                setUIVisible(not uiVisible)
+                mobileToggle.Text = uiVisible and "×" or "☰"
+            end
+            dragStart = nil
+            buttonStart = nil
+        end
+    end)
+
+    -- Keep the floating control within the screen after device rotation.
+    local currentCamera = workspace.CurrentCamera
+    if currentCamera then
+        currentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+            local center = clampButtonCenter(
+                mobileToggle.AbsolutePosition.X + mobileToggle.AbsoluteSize.X / 2,
+                mobileToggle.AbsolutePosition.Y + mobileToggle.AbsoluteSize.Y / 2
+            )
+            mobileToggle.Position = UDim2.fromOffset(center.X, center.Y)
+        end)
+    end
 
     Fluent:Notify({
         Title = "STEPTHEP",
@@ -910,16 +1060,7 @@ startMain = function(authResult)
         if delta.Magnitude > CFG.AIM_FOV then lockedTarget = nil return end
 
         local step = math.clamp(CFG.AIM_SMOOTH, 0.01, 1.0)
-
-        -- Mobile: rotate the camera directly while the fire-side touch is held.
-        -- Desktop: keep the executor mouse movement path.
-        if UserInputSvc.TouchEnabled then
-            local camPos = Camera.CFrame.Position
-            local desired = CFrame.lookAt(camPos, bonePos)
-            Camera.CFrame = Camera.CFrame:Lerp(desired, step)
-        elseif mousemoverel then
-            mousemoverel(delta.X * step, delta.Y * step)
-        end
+        mousemoverel(delta.X * step, delta.Y * step)
     end
 
     -- ══════════════════════════════════════════════
@@ -946,25 +1087,6 @@ startMain = function(authResult)
     --  INPUT — ALT ทำงานตลอด ไม่ต้องเปิดเมนูก่อน
     -- ══════════════════════════════════════════════
     UserInputSvc.InputBegan:Connect(function(input, gpe)
-        -- Mobile fire-side touch: hold on the right/lower half to aim while firing.
-        -- Ignore touches over the menu so UI interaction does not activate aim.
-        if input.UserInputType == Enum.UserInputType.Touch and UserInputSvc.TouchEnabled then
-            local p = input.Position
-            local vp = Camera.ViewportSize
-
-            -- Match the large bullet/fire button shown in the supplied mobile HUD.
-            -- Normalized center ~= (0.836, 0.666); elliptical hit area scales with screen.
-            local nx = (p.X / vp.X - 0.836) / 0.085
-            local ny = (p.Y / vp.Y - 0.666) / 0.160
-            local inFireZone = (nx * nx + ny * ny) <= 1
-
-            if inFireZone and CFG.AIM_ENABLED then
-                mobileFireTouch = input
-                aimActive = true
-                lockedTarget = nil
-            end
-        end
-
         -- INSERT: toggle UI — no gpe check, fires always
         if input.KeyCode == CFG.KEY_UI_TOGGLE then
             setUIVisible(not uiVisible)
@@ -1010,12 +1132,6 @@ startMain = function(authResult)
 
     UserInputSvc.InputEnded:Connect(function(input)
         if input.KeyCode == CFG.KEY_LOCK then
-            aimActive = false
-            lockedTarget = nil
-        end
-
-        if mobileFireTouch and input == mobileFireTouch then
-            mobileFireTouch = nil
             aimActive = false
             lockedTarget = nil
         end
