@@ -449,11 +449,23 @@ local function setUILanguage(language)
     saveUIPrefs()
 end
 
+-- Responsive window sizing for mobile portrait/landscape and desktop.
+local initialCamera = workspace.CurrentCamera
+local initialViewport = initialCamera and initialCamera.ViewportSize or Vector2.new(1280, 720)
+local windowSize
+if initialViewport.X < initialViewport.Y then
+    windowSize = UDim2.fromScale(0.88, 0.68) -- portrait phone
+elseif UserInputSvc.TouchEnabled and not UserInputSvc.KeyboardEnabled then
+    windowSize = UDim2.fromScale(0.70, 0.76) -- landscape phone/tablet
+else
+    windowSize = UDim2.fromOffset(600, 470) -- desktop: keep original size
+end
+
 local LoginWindow = Fluent:CreateWindow({
     Title = "สเต็ปเทพ",
     SubTitle = "License Verification",
-    TabWidth = 145,
-    Size = UDim2.fromOffset(600, 470),
+    TabWidth = 120,
+    Size = windowSize,
     Acrylic = true,
     Theme = UIPrefs.Theme,
     MinimizeKey = Enum.KeyCode.RightControl
@@ -786,20 +798,19 @@ startMain = function(authResult)
         end
     end
 
-    -- MOBILE UI TOGGLE: touch button remains available while the Fluent
-    -- window is minimized. This is UI-only and does not change KeyAuth.
+    -- MOBILE UI TOGGLE: tap to show/hide; hold and drag to reposition.
     local mobileToggle = Instance.new("TextButton")
     mobileToggle.Name = "MobileMenuToggle"
     mobileToggle.Parent = Fluent.GUI
-    mobileToggle.AnchorPoint = Vector2.new(1, 0)
-    mobileToggle.Position = UDim2.new(1, -18, 0, 115)
-    mobileToggle.Size = UDim2.fromOffset(54, 54)
+    mobileToggle.AnchorPoint = Vector2.new(0.5, 0.5)
+    mobileToggle.Position = UDim2.new(1, -42, 0.5, 0)
+    mobileToggle.Size = UDim2.fromOffset(48, 48)
     mobileToggle.BackgroundColor3 = Color3.fromRGB(35, 39, 49)
     mobileToggle.BackgroundTransparency = 0.08
     mobileToggle.BorderSizePixel = 0
     mobileToggle.Text = "×"
     mobileToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    mobileToggle.TextSize = 27
+    mobileToggle.TextSize = 25
     mobileToggle.Font = Enum.Font.GothamBold
     mobileToggle.AutoButtonColor = true
     mobileToggle.Active = true
@@ -815,10 +826,82 @@ startMain = function(authResult)
     mobileStroke.Thickness = 1.5
     mobileStroke.Parent = mobileToggle
 
-    mobileToggle.Activated:Connect(function()
-        setUIVisible(not uiVisible)
-        mobileToggle.Text = uiVisible and "×" or "☰"
+    local dragging = false
+    local dragInput = nil
+    local dragStart = nil
+    local buttonStart = nil
+    local moved = false
+    local dragThreshold = 9
+
+    local function clampButtonCenter(x, y)
+        local camera = workspace.CurrentCamera
+        local viewport = camera and camera.ViewportSize or Vector2.new(1280, 720)
+        local halfX = mobileToggle.AbsoluteSize.X / 2
+        local halfY = mobileToggle.AbsoluteSize.Y / 2
+        return Vector2.new(
+            math.clamp(x, halfX, math.max(halfX, viewport.X - halfX)),
+            math.clamp(y, halfY, math.max(halfY, viewport.Y - halfY))
+        )
+    end
+
+    local function moveToggle(input)
+        if not dragging or not dragStart or not buttonStart then return end
+        local delta = input.Position - dragStart
+        if delta.Magnitude > dragThreshold then moved = true end
+        local center = clampButtonCenter(buttonStart.X + delta.X, buttonStart.Y + delta.Y)
+        mobileToggle.Position = UDim2.fromOffset(center.X, center.Y)
+    end
+
+    mobileToggle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch
+            or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            moved = false
+            dragInput = input
+            dragStart = input.Position
+            buttonStart = mobileToggle.AbsolutePosition + (mobileToggle.AbsoluteSize / 2)
+        end
     end)
+
+    UserInputSvc.InputChanged:Connect(function(input)
+        if not dragging or not dragInput then return end
+        if dragInput.UserInputType == Enum.UserInputType.Touch then
+            if input.UserInputType == Enum.UserInputType.Touch then moveToggle(input) end
+        elseif dragInput.UserInputType == Enum.UserInputType.MouseButton1
+            and input.UserInputType == Enum.UserInputType.MouseMovement then
+            moveToggle(input)
+        end
+    end)
+
+    UserInputSvc.InputEnded:Connect(function(input)
+        if not dragging or not dragInput then return end
+        local endedTouch = dragInput.UserInputType == Enum.UserInputType.Touch
+            and input == dragInput
+        local endedMouse = dragInput.UserInputType == Enum.UserInputType.MouseButton1
+            and input.UserInputType == Enum.UserInputType.MouseButton1
+        if endedTouch or endedMouse then
+            dragging = false
+            dragInput = nil
+            if not moved then
+                setUIVisible(not uiVisible)
+                mobileToggle.Text = uiVisible and "×" or "☰"
+            end
+            dragStart = nil
+            buttonStart = nil
+        end
+    end)
+
+    -- Keep the floating control within the screen after device rotation.
+    local currentCamera = workspace.CurrentCamera
+    if currentCamera then
+        currentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+            local center = clampButtonCenter(
+                mobileToggle.AbsolutePosition.X + mobileToggle.AbsoluteSize.X / 2,
+                mobileToggle.AbsolutePosition.Y + mobileToggle.AbsoluteSize.Y / 2
+            )
+            mobileToggle.Position = UDim2.fromOffset(center.X, center.Y)
+        end)
+    end
 
     Fluent:Notify({
         Title = "STEPTHEP",
